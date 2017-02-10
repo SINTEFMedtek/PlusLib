@@ -8,8 +8,9 @@ See License.txt for details.
 
 // Define OFFLINE_TESTING to read image input from file instead of reading from the actual hardware device.
 // This is useful only for testing and debugging without having access to an actual BK scanner.
-//#define OFFLINE_TESTING
-static const char OFFLINE_TESTING_FILENAME[] = "c:\\Users\\lasso\\Downloads\\bktest.png";
+#define OFFLINE_TESTING
+//static const char OFFLINE_TESTING_FILENAME[] = "c:\\Users\\lasso\\Downloads\\bktest.png";
+static const char OFFLINE_TESTING_FILENAME[] = "c:\\dev\\bktest.png";
 
 #include "PlusConfigure.h"
 #include "vtkPlusBkProFocusOemVideoSource.h"
@@ -106,6 +107,22 @@ vtkPlusBkProFocusOemVideoSource::vtkPlusBkProFocusOemVideoSource()
   this->ContinuousStreamingEnabled = false;
   this->UltrasoundWindowSize[0] = 0;
   this->UltrasoundWindowSize[1] = 0;
+  this->StartLineX_m = 0;
+  this->StartLineY_m = 0;
+  this->StartLineAngle_rad = 0;
+  this->StartDepth_m = 0;
+  this->StopLineX_m = 0;
+  this->StopLineY_m = 0;
+  this->StopLineAngle_rad = 0;
+  this->StopDepth_m = 0;
+  this->pixelLeft_pix = 0;
+  this->pixelTop_pix = 0;
+  this->pixelRight_pix = 0;
+  this->pixelBottom_pix = 0;
+  this->tissueLeft_m = 0;
+  this->tissueTop_m = 0;
+  this->tissueRight_m = 0;
+  this->tissueBottom_m = 0;
 
   this->RequireImageOrientationInConfiguration = true;
 
@@ -195,6 +212,27 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::InternalConnect()
     {
       return PLUS_FAIL;
     }
+
+	if (this->QueryGeometryScanarea() != PLUS_SUCCESS)
+	{
+		return PLUS_FAIL;
+	}
+	if (this->QueryGeometryPixel() != PLUS_SUCCESS)
+	{
+		return PLUS_FAIL;
+	}
+	if (this->QueryGeometryTissue() != PLUS_SUCCESS)
+	{
+		return PLUS_FAIL;
+	}
+//	if (this->QueryTransverseImageCalibration() != PLUS_SUCCESS)
+//	{
+//		return PLUS_FAIL;
+//	}
+//	if (this->QuerySagImageCalibration() != PLUS_SUCCESS)
+//	{
+//		return PLUS_FAIL;
+//	}
 
     // Start data streaming
     LOG_TRACE("Start data streaming");
@@ -421,7 +459,16 @@ fclose(f);
       << ", buffer image orientation: " << PlusVideoFrame::GetStringFromUsImageOrientation(aSource->GetInputImageOrientation()));
 
   }
-  if (aSource->AddItem(this->Internal->DecodedImageFrame, aSource->GetInputImageOrientation(), US_IMG_BRIGHTNESS, this->FrameNumber) != PLUS_SUCCESS)
+
+  PlusTrackedFrame::FieldMapType customFields;
+  if (this->GenerateCustomFields(customFields) != PLUS_SUCCESS)
+  {
+	  LOG_ERROR("Error generating custom BK fields");
+	  return PLUS_FAIL;
+  }
+
+  //if (aSource->AddItem(this->Internal->DecodedImageFrame, aSource->GetInputImageOrientation(), US_IMG_BRIGHTNESS, this->FrameNumber) != PLUS_SUCCESS)
+  if (aSource->AddItem(this->Internal->DecodedImageFrame, aSource->GetInputImageOrientation(), US_IMG_BRIGHTNESS, this->FrameNumber, UNDEFINED_TIMESTAMP, UNDEFINED_TIMESTAMP, &customFields) != PLUS_SUCCESS)
   {
     LOG_ERROR("Error adding item to video source " << aSource->GetSourceId() << " on channel " << this->Internal->Channel->GetChannelId());
     return PLUS_FAIL;
@@ -430,6 +477,21 @@ fclose(f);
 
   return PLUS_SUCCESS;
 }
+
+PlusStatus vtkPlusBkProFocusOemVideoSource::GenerateCustomFields(PlusTrackedFrame::FieldMapType &customFields)
+{
+/*	double StartLineX_m, StartLineY_m, StartLineAngle_rad, StartDepth_m, StopLineX_m, StopLineY_m, StopLineAngle_rad, StopDepth_m;
+	int pixelLeft_pix, pixelTop_pix, pixelRight_pix, pixelBottom_pix;
+	double tissueLeft_m, tissueTop_m, tissueRight_m, tissueBottom_m;
+*/
+  //customFields[name] = value;
+  int value = 10;
+  //customFields["testParameter"] = "10";
+  customFields["testParameter"] = std::to_string(value);
+
+  return PLUS_SUCCESS;
+}
+
 
 //-----------------------------------------------------------------------------
 // QUERY:US_WIN_SIZE;
@@ -459,6 +521,128 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::QueryImageSize()
   LOG_TRACE("Ultrasound image size = " << this->UltrasoundWindowSize[0] << " x " << this->UltrasoundWindowSize[1]);
 
   return PLUS_SUCCESS;
+}
+
+// QUERY:B_GEOMETRY_SCANAREA;
+PlusStatus vtkPlusBkProFocusOemVideoSource::QueryGeometryScanarea()
+{
+	LOG_DEBUG("Get ultrasound geometry from BKProFocusOem");
+
+	std::string query = "QUERY:B_GEOMETRY_SCANAREA:A;";
+	LOG_TRACE("Query from vtkPlusBkProFocusOemVideoSource: " << query);
+
+	size_t replyBytes = 200;
+	PlusStatus retval = SendReceiveQuery(query, replyBytes);
+
+	// Retrieve the "DATA:B_GEOMETRY_SCANAREA StartLineX(m),StartLineY(m),StartLineAngle(rad),StartDepth(m),StopLineX(m),StopLineY(m),StopLineAngle(rad),StopDepth(m);"
+	sscanf(&(this->Internal->OemClientReadBuffer[0]), "DATA:B_GEOMETRY_SCANAREA:A %lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf;",
+		&StartLineX_m, &StartLineY_m, &StartLineAngle_rad, &StartDepth_m, &StopLineX_m, &StopLineY_m, &StopLineAngle_rad, &StopDepth_m);
+	LOG_TRACE("Ultrasound geometry. StartLineX_m: " << StartLineX_m << " StartLineY_m: " << StartLineY_m << " StartLineAngle_rad: " << StartLineAngle_rad <<
+		" StartDepth_m: " << StartDepth_m << " StopLineX_m: " << StopLineX_m << " StopLineY_m: " << StopLineY_m << " StopLineAngle_rad: " << StopLineAngle_rad << " StopDepth_m: " << StopDepth_m);
+
+	return retval;
+}
+
+//-----------------------------------------------------------------------------
+// QUERY:B_GEOMETRY_PIXEL;
+PlusStatus vtkPlusBkProFocusOemVideoSource::QueryGeometryPixel()
+{
+	std::string query = "QUERY:B_GEOMETRY_PIXEL:A;";
+	LOG_TRACE("Query from vtkPlusBkProFocusOemVideoSource: " << query);
+
+	size_t replyBytes = 100;
+	PlusStatus retval = SendReceiveQuery(query, replyBytes);
+
+	// Retrieve the "DATA:B_GEOMETRY_PIXEL Left,Top,Right,Bottom;"
+	sscanf(&(this->Internal->OemClientReadBuffer[0]), "DATA:B_GEOMETRY_PIXEL:A %d,%d,%d,%d;",
+		&pixelLeft_pix, &pixelTop_pix, &pixelRight_pix, &pixelBottom_pix);
+	LOG_TRACE("Ultrasound geometry. pixelLeft_pix: " << pixelLeft_pix << " pixelTop_pix: " << pixelTop_pix << " pixelRight_pix: " << pixelRight_pix << " pixelBottom_pix: " << pixelBottom_pix);
+
+	return retval;
+}
+
+//-----------------------------------------------------------------------------
+// QUERY:B_GEOMETRY_TISSUE;
+PlusStatus vtkPlusBkProFocusOemVideoSource::QueryGeometryTissue()
+{
+	std::string query = "QUERY:B_GEOMETRY_TISSUE:A;";
+	LOG_TRACE("Query from vtkPlusBkProFocusOemVideoSource: " << query);
+
+	size_t replyBytes = 100;
+	PlusStatus retval = SendReceiveQuery(query, replyBytes);
+
+	sscanf(&(this->Internal->OemClientReadBuffer[0]), "DATA:B_GEOMETRY_TISSUE:A %lf,%lf,%lf,%lf;",
+		&tissueLeft_m, &tissueTop_m, &tissueRight_m, &tissueBottom_m);
+	LOG_TRACE("Ultrasound geometry. tissueLeft_m: " << tissueLeft_m << " tissueTop_m: " << tissueTop_m << " tissueRight_m: " << tissueRight_m << " tissueBottom_m: " << tissueBottom_m);
+
+	return retval;
+}
+
+//-----------------------------------------------------------------------------
+// QUERY:B_TRANS_IMAGE_CALIB; //Get only zeroes as return values
+/*PlusStatus vtkPlusBkProFocusOemVideoSource::QueryTransverseImageCalibration()
+{
+	std::string query = "QUERY:B_TRANS_IMAGE_CALIB:A;";
+	LOG_TRACE("Query from vtkPlusBkProFocusOemVideoSource: " << query);
+
+	size_t replyBytes = 100;
+	PlusStatus retval = SendReceiveQuery(query, replyBytes);
+
+	sscanf(&(this->Internal->OemClientReadBuffer[0]), "DATA:B_TRANS_IMAGE_CALIB:A %lf,%lf,%lf,%lf,%lf;",
+		&resolutionX_m, &resolutionY_m, &probeCenterX_m, &probeCenterY_m, &probeRadius_m);
+	LOG_TRACE("Ultrasound geometry. resolutionX_m: " << resolutionX_m << " resolutionY_m: " << resolutionY_m << " probeCenterX_m: " << probeCenterX_m << " probeCenterY_m: " << probeCenterY_m << " probeRadius_m: " << probeRadius_m);
+
+	return retval;
+}
+
+//-----------------------------------------------------------------------------
+// QUERY:B_SAG_IMAGE_CALIB; //Get only zeroes as return values
+PlusStatus vtkPlusBkProFocusOemVideoSource::QuerySagImageCalibration()
+{
+	std::string query = "QUERY:B_SAG_IMAGE_CALIB:A;";
+	LOG_TRACE("Query from vtkPlusBkProFocusOemVideoSource: " << query);
+
+	size_t replyBytes = 100;
+	PlusStatus retval = SendReceiveQuery(query, replyBytes);
+
+	sscanf(&(this->Internal->OemClientReadBuffer[0]), "DATA:B_SAG_IMAGE_CALIB:A %lf,%lf,%lf,%lf,%lf;",
+		&resolutionX_m, &resolutionY_m, &probeCenterX_m, &probeCenterY_m, &probeRadius_m);
+	LOG_TRACE("Ultrasound geometry. resolutionX_m: " << resolutionX_m << " resolutionY_m: " << resolutionY_m << " probeCenterX_m: " << probeCenterX_m << " probeCenterY_m: " << probeCenterY_m << " probeRadius_m: " << probeRadius_m);
+
+	return retval;
+}*/
+
+//-----------------------------------------------------------------------------
+// COMMAND:P_MODE;
+PlusStatus vtkPlusBkProFocusOemVideoSource::CommandPowerDopplerOn()
+{
+	std::string query = "COMMAND:P_MODE: \"ON\";";
+	LOG_TRACE("Command from vtkPlusBkProFocusOemVideoSource: " << query);
+
+	size_t replyBytes = 100;
+	PlusStatus retval = SendReceiveQuery(query, replyBytes);
+
+	return retval;
+}
+
+//-----------------------------------------------------------------------------
+PlusStatus vtkPlusBkProFocusOemVideoSource::SendReceiveQuery(std::string query, size_t replyBytes)
+{
+	size_t queryWrittenSize = this->Internal->OemClient->Write(query.c_str(), query.size());
+	if (queryWrittenSize != query.size() + 2) // OemClient->Write returns query.size()+2 on a successfully sent event (see #722)
+	{
+		LOG_ERROR("Failed to send query through BK OEM interface (" << query << ")" << queryWrittenSize << " vs " << query.size() << "+2");
+		return PLUS_FAIL;
+	}
+
+	this->Internal->OemClientReadBuffer.resize(replyBytes);
+	size_t numBytesReceived = this->Internal->OemClient->Read(&(this->Internal->OemClientReadBuffer[0]), replyBytes);
+	if (numBytesReceived == 0)
+	{
+		LOG_ERROR("Failed to read response from BK OEM interface");
+		return PLUS_FAIL;
+	}
+	return PLUS_SUCCESS;
 }
 
 //-----------------------------------------------------------------------------
