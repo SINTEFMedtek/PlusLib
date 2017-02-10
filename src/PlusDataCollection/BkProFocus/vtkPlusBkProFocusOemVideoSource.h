@@ -65,6 +65,12 @@ protected:
   // Size of the ultrasound image. Only used if ContinuousStreamingEnabled is true.
   int UltrasoundWindowSize[2];
 
+  //Ultrasound sector geometry, values read from the scanner
+  double StartLineX_m, StartLineY_m, StartLineAngle_rad, StartDepth_m, StopLineX_m, StopLineY_m, StopLineAngle_rad, StopDepth_m;
+  int pixelLeft_pix, pixelTop_pix, pixelRight_pix, pixelBottom_pix;
+  double tissueLeft_m, tissueTop_m, tissueRight_m, tissueBottom_m;
+  //double resolutionX_m, resolutionY_m, probeCenterX_m, probeCenterY_m, probeRadius_m;
+
   /*! Constructor */
   vtkPlusBkProFocusOemVideoSource();
   /*! Destructor */
@@ -85,8 +91,18 @@ protected:
   /*! The internal function which actually does the grab.  */
   PlusStatus InternalUpdate();
 
+  /*! Generate custom frame fields base on parameters read from the BK scanner. */
+  PlusStatus GenerateCustomFields(PlusTrackedFrame::FieldMapType &customFields);
+
   /*! The internal function which ...  */
-	PlusStatus QueryImageSize();
+  PlusStatus QueryImageSize();
+  PlusStatus QueryGeometryScanarea();
+  PlusStatus QueryGeometryPixel();
+  PlusStatus QueryGeometryTissue();
+  //PlusStatus QueryTransverseImageCalibration();
+  //PlusStatus QuerySagImageCalibration();
+  PlusStatus CommandPowerDopplerOn();
+  PlusStatus SendReceiveQuery(std::string query, size_t replyBytes);
 
   PlusStatus GetFullIniFilePath(std::string &fullPath);
 

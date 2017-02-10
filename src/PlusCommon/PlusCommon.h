@@ -317,16 +317,18 @@ namespace PlusCommon
   vtkPlusCommonExport PlusStatus DrawScanLines(int* inputImageExtent, float greyValue, const PixelLineList& scanLineEndPoints, vtkImageData* imageData);
   vtkPlusCommonExport PlusStatus DrawScanLines(int* inputImageExtent, const std::array<float, 3>& colour, const PixelLineList& scanLineEndPoints, vtkImageData* imageData);
 
+  static std::string ToString(int number)
+  {
 #if defined(_MSC_VER) && _MSC_VER < 1700
   // This method can be used for number to string conversion
   // until std::to_string is supported by more compilers.
-  static std::string ToString(int number)
-  {
     std::ostringstream ss;
     ss << number;
     return ss.str();
-  }
+#else
+	  return std::to_string(number);
 #endif
+  }
 
   static const int NO_CLIP = -1;
   vtkPlusCommonExport bool IsClippingRequested(const int clipOrigin[3], const int clipSize[3]);
