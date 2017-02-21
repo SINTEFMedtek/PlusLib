@@ -39,9 +39,6 @@ See License.txt for details.
 // OpenIGTLinkIO includes
 #include <igtlPolyDataConverter.h>
 
-// STL includes
-#include <future>
-
 #if defined(WIN32)
 #include "vtkPlusOpenIGTLinkServerWin32.cxx"
 #elif defined(__APPLE__)
@@ -97,6 +94,7 @@ vtkPlusOpenIGTLinkServer::vtkPlusOpenIGTLinkServer()
   , PlusCommandProcessor(vtkSmartPointer<vtkPlusCommandProcessor>::New())
   , MessageResponseQueueMutex(vtkSmartPointer<vtkPlusRecursiveCriticalSection>::New())
   , BroadcastChannel(NULL)
+  , KeepAliveIntervalSec(CLIENT_SOCKET_TIMEOUT_SEC / 2.0)
   , GracePeriodLogLevel(vtkPlusLogger::LOG_LEVEL_DEBUG)
   , MissingInputGracePeriodSec(0.0)
   , BroadcastStartTime(0.0)
@@ -217,7 +215,7 @@ PlusStatus vtkPlusOpenIGTLinkServer::StopOpenIGTLinkService()
 }
 
 //----------------------------------------------------------------------------
-const std::string& vtkPlusOpenIGTLinkServer::GetConfigFilename() const
+std::string vtkPlusOpenIGTLinkServer::GetConfigFilename() const
 {
   return this->ConfigFilename;
 }
@@ -429,7 +427,7 @@ PlusStatus vtkPlusOpenIGTLinkServer::SendLatestFramesToClients(vtkPlusOpenIGTLin
     elapsedTimeSinceLastPacketSentSec += vtkPlusAccurateTimer::GetSystemTime() - startTimeSec;
 
     // Send keep alive packet to clients
-    if (elapsedTimeSinceLastPacketSentSec > (CLIENT_SOCKET_TIMEOUT_SEC / 2.0))
+    if (elapsedTimeSinceLastPacketSentSec > self.KeepAliveIntervalSec)
     {
       self.KeepAlive();
       elapsedTimeSinceLastPacketSentSec = 0;
@@ -557,6 +555,7 @@ void* vtkPlusOpenIGTLinkServer::DataReceiverThread(vtkMultiThreader::ThreadInfo*
     int bytesReceived = clientSocket->Receive(headerMsg->GetPackPointer(), headerMsg->GetPackSize());
     if (bytesReceived == IGTL_EMPTY_DATA_SIZE || bytesReceived != headerMsg->GetPackSize())
     {
+      vtkPlusAccurateTimer::Delay(0.1);
       continue;
     }
 
@@ -1083,6 +1082,7 @@ PlusStatus vtkPlusOpenIGTLinkServer::ReadConfiguration(vtkXMLDataElement* server
   XML_READ_SCALAR_ATTRIBUTE_OPTIONAL(int, MaxNumberOfIgtlMessagesToSend, serverElement);
   XML_READ_SCALAR_ATTRIBUTE_OPTIONAL(int, NumberOfRetryAttempts, serverElement);
   XML_READ_SCALAR_ATTRIBUTE_OPTIONAL(double, DelayBetweenRetryAttemptsSec, serverElement);
+  XML_READ_SCALAR_ATTRIBUTE_OPTIONAL(double, KeepAliveIntervalSec, serverElement);
   XML_READ_BOOL_ATTRIBUTE_OPTIONAL(SendValidTransformsOnly, serverElement);
   XML_READ_BOOL_ATTRIBUTE_OPTIONAL(IgtlMessageCrcCheckEnabled, serverElement);
 
@@ -1117,7 +1117,7 @@ int vtkPlusOpenIGTLinkServer::GetListeningPort() const
 }
 
 //----------------------------------------------------------------------------
-const std::string& vtkPlusOpenIGTLinkServer::GetOutputChannelId() const
+std::string vtkPlusOpenIGTLinkServer::GetOutputChannelId() const
 {
   return this->OutputChannelId;
 }
@@ -1174,6 +1174,12 @@ vtkPlusTransformRepository* vtkPlusOpenIGTLinkServer::GetTransformRepository() c
 double vtkPlusOpenIGTLinkServer::GetDelayBetweenRetryAttemptsSec() const
 {
   return this->DelayBetweenRetryAttemptsSec;
+}
+
+//----------------------------------------------------------------------------
+double vtkPlusOpenIGTLinkServer::GetKeepAliveIntervalSec() const
+{
+  return this->KeepAliveIntervalSec;
 }
 
 //----------------------------------------------------------------------------

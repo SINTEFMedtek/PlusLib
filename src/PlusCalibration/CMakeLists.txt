@@ -97,7 +97,11 @@ SET(PlusCalibration_LIBS
 
 GENERATE_EXPORT_DIRECTIVE_FILE(vtkPlusCalibration)
 ADD_LIBRARY( vtkPlusCalibration ${PlusCalibration_SRCS} ${PlusCalibration_HDRS} )
-target_include_directories(vtkPlusCalibration PUBLIC ${PlusCalibration_INCLUDE_DIRS} )
+FOREACH(p IN LISTS PlusCalibration_INCLUDE_DIRS)
+  target_include_directories(vtkPlusCalibration PUBLIC $<BUILD_INTERFACE:${p}>)
+ENDFOREACH()
+target_include_directories(vtkPlusCalibration PUBLIC $<INSTALL_INTERFACE:${PLUSLIB_INCLUDE_INSTALL}>)
+
 TARGET_LINK_LIBRARIES(vtkPlusCalibration ${PlusCalibration_LIBS})
 
 # --------------------------------------------------------------------------
@@ -135,7 +139,7 @@ IF(PLUSBUILD_BUILD_PlusLib_TOOLS)
   #--------------------------------------------------------------------------------------------
   ADD_EXECUTABLE(TemporalCalibration Tools/TemporalCalibration.cxx)
   SET_TARGET_PROPERTIES(TemporalCalibration PROPERTIES FOLDER Tools)
-  TARGET_LINK_LIBRARIES( TemporalCalibration vtkPlusCommon vtkPlusCalibration vtkPlusDataCollection)
+  TARGET_LINK_LIBRARIES(TemporalCalibration vtkPlusCommon vtkPlusCalibration vtkPlusDataCollection)
   GENERATE_HELP_DOC(TemporalCalibration)
 
   #--------------------------------------------------------------------------------------------
@@ -150,7 +154,8 @@ IF(PLUSBUILD_BUILD_PlusLib_TOOLS)
       ConvertXmlToFcsv
       TemporalCalibration
       ProbeCalibration
-    DESTINATION bin
+    EXPORT PlusLib
+    DESTINATION "${PLUSLIB_BINARY_INSTALL}"
     COMPONENT RuntimeExecutables
     )
 ENDIF()
@@ -158,18 +163,18 @@ ENDIF()
 # --------------------------------------------------------------------------
 # Install
 #
-INSTALL(TARGETS vtkPlusCalibration
-  RUNTIME DESTINATION bin CONFIGURATIONS Release COMPONENT RuntimeLibraries
-  LIBRARY DESTINATION lib CONFIGURATIONS Release COMPONENT RuntimeLibraries
-  ARCHIVE DESTINATION lib CONFIGURATIONS Release COMPONENT Development
+INSTALL(TARGETS vtkPlusCalibration EXPORT PlusLib
+  RUNTIME DESTINATION "${PLUSLIB_BINARY_INSTALL}" CONFIGURATIONS Release COMPONENT RuntimeLibraries
+  LIBRARY DESTINATION "${PLUSLIB_LIBRARY_INSTALL}" CONFIGURATIONS Release COMPONENT RuntimeLibraries
+  ARCHIVE DESTINATION "${PLUSLIB_ARCHIVE_INSTALL}" CONFIGURATIONS Release COMPONENT Development
   )
 INSTALL(FILES ${PlusCalibration_HDRS}
-  DESTINATION include
+  DESTINATION "${PLUSLIB_INCLUDE_INSTALL}" CONFIGURATIONS Release COMPONENT Development
   )
   
 # --------------------------------------------------------------------------
 # Testing
 #
-IF (BUILD_TESTING)
+IF(BUILD_TESTING)
   ADD_SUBDIRECTORY (Testing)
-ENDIF (BUILD_TESTING)
+ENDIF()

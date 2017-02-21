@@ -23,8 +23,10 @@
 
 // STL includes
 #include <array>
-#include <sstream>
 #include <list>
+#include <locale>
+#include <sstream>
+//#include <xutility>
 
 class vtkPlusUsScanConvert;
 class vtkPlusTrackedFrameList;
@@ -54,9 +56,6 @@ enum PlusImagingMode
 #else
 #  define STRCASECMP strcasecmp
 #endif
-
-/* Define round function */
-#define ROUND(x) (static_cast<int>(floor( x + 0.5 )))
 
 ///////////////////////////////////////////////////////////////////
 // Logging
@@ -309,6 +308,9 @@ namespace PlusCommon
                                           ALPHA_BEHAVIOR alphaBehavior = ALPHA_BEHAVIOR_OPAQUE);
 
   //----------------------------------------------------------------------------
+  bool vtkPlusCommonExport IsEqualInsensitive(std::string const& a, std::string const& b);
+
+  //----------------------------------------------------------------------------
   typedef std::array<int, 3> PixelPoint;
   typedef std::pair<PixelPoint, PixelPoint> PixelLine;
   typedef std::vector<PixelLine> PixelLineList;
@@ -317,7 +319,8 @@ namespace PlusCommon
   vtkPlusCommonExport PlusStatus DrawScanLines(int* inputImageExtent, float greyValue, const PixelLineList& scanLineEndPoints, vtkImageData* imageData);
   vtkPlusCommonExport PlusStatus DrawScanLines(int* inputImageExtent, const std::array<float, 3>& colour, const PixelLineList& scanLineEndPoints, vtkImageData* imageData);
 
-  static std::string ToString(int number)
+  template<typename T>
+  static std::string ToString(T number)
   {
 #if defined(_MSC_VER) && _MSC_VER < 1700
   // This method can be used for number to string conversion

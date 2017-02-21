@@ -107,7 +107,7 @@ public:
   /*! Get server listening port */
   virtual int GetListeningPort() const;
 
-  virtual const std::string& GetOutputChannelId() const;
+  virtual std::string GetOutputChannelId() const;
 
   vtkSetMacro(MissingInputGracePeriodSec, double);
   virtual double GetMissingInputGracePeriodSec() const;
@@ -146,7 +146,7 @@ public:
   /*! Stop server */
   PlusStatus StopOpenIGTLinkService();
 
-  virtual const std::string& GetConfigFilename() const;
+  virtual std::string GetConfigFilename() const;
 
   vtkGetMacro(IGTLProtocolVersion, int);
 
@@ -206,6 +206,9 @@ protected:
 
   vtkSetMacro(DelayBetweenRetryAttemptsSec, double);
   virtual double GetDelayBetweenRetryAttemptsSec() const;
+
+  vtkSetMacro(KeepAliveIntervalSec, double);
+  virtual double GetKeepAliveIntervalSec() const;
 
   virtual void SetOutputChannelId(const std::string& outputChannelId);
   virtual void SetConfigFilename(const std::string& configFilename);
@@ -298,6 +301,8 @@ private:
 
   /*! Channel to use for broadcasting */
   vtkPlusChannel* BroadcastChannel;
+
+  double KeepAliveIntervalSec;
 
   std::string ConfigFilename;
 

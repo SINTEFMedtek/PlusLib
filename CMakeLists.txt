@@ -11,6 +11,15 @@ SET(PLUSLIB_VERSION_MINOR "5")
 SET(PLUSLIB_VERSION_PATCH "0")
 SET(PLUSLIB_VERSION ${PLUSLIB_VERSION_MAJOR}.${PLUSLIB_VERSION_MINOR}.${PLUSLIB_VERSION_PATCH})
 
+# Set project install folders, these paths should be relative to ${CMAKE_INTALL_PREFIX}, absolute paths will break things
+SET(PLUSLIB_INSTALL_FOLDERNAME "PlusLib-${PLUSLIB_VERSION_MAJOR}.${PLUSLIB_VERSION_MINOR}")
+SET(PLUSLIB_BINARY_INSTALL "bin")
+SET(PLUSLIB_INCLUDE_INSTALL "include/${PLUSLIB_INSTALL_FOLDERNAME}")
+SET(PLUSLIB_LIBRARY_INSTALL "lib")
+SET(PLUSLIB_ARCHIVE_INSTALL "lib")
+SET(PLUSLIB_CMAKE_INSTALL "lib/cmake/${PLUSLIB_INSTALL_FOLDERNAME}")
+SET(PLUSLIB_SHARE_INSTALL "share/${PLUSLIB_INSTALL_FOLDERNAME}")
+
 # Use solution folders.
 IF(MSVC OR ${CMAKE_GENERATOR} MATCHES "Xcode")
   SET_PROPERTY(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -52,17 +61,25 @@ IF(WIN32)
 ENDIF()
 
 # --------------------------------------------------------------------------
-# User options
-#
-
-# Standard CMake option for testing.
-OPTION(BUILD_TESTING "Build test programs" ON)
-
-# --------------------------------------------------------------------------
 # Testing
 #
+OPTION(BUILD_TESTING "Build test programs" ON)
 
-IF (PLUS_OFFLINE_BUILD)
+INCLUDE(CTest)
+
+# Clean up the IDE folder name for CTest dashboard targets
+IF(BUILD_TESTING)
+  FOREACH(mode Experimental Nightly Continuous NightlyMemoryCheck)
+    IF(TARGET ${mode})
+      SET_PROPERTY(TARGET ${mode} PROPERTY FOLDER "CTest Targets")
+    ENDIF()
+  ENDFOREACH()
+ENDIF()
+
+# --------------------------------------------------------------------------
+# Repository
+#
+IF(PLUS_OFFLINE_BUILD)
   SET(PLUSLIB_REVISION "NA")
   SET(PLUSLIB_SHORT_REVISION "NA")
 ELSE()
@@ -91,15 +108,25 @@ ELSE()
   ENDIF()
 ENDIF()
 
-INCLUDE(CTest)
-
-# Clean up the IDE folder name for CTest dashboard targets
-IF(BUILD_TESTING)
-  FOREACH(mode Experimental Nightly Continuous NightlyMemoryCheck)
-    IF(TARGET ${mode})
-      SET_PROPERTY(TARGET ${mode} PROPERTY FOLDER "CTest Targets")
-    ENDIF()
-  ENDFOREACH()
+# --------------------------------------------------------------------------
+# Developer setup
+#
+IF(Git_FOUND)
+  GET_FILENAME_COMPONENT(_git_directory ${GIT_EXECUTABLE} DIRECTORY)
+ENDIF()
+SET(_x86env "ProgramFiles(x86)")
+FIND_PROGRAM(BASH_EXECUTABLE bash
+  HINTS 
+    ${_git_directory}
+    $ENV{ProgramFiles}/Git/bin
+    $ENV{${_x86env}}/Git/bin
+  )
+MARK_AS_ADVANCED(BASH_EXECUTABLE)
+IF(BASH_EXECUTABLE)
+  EXECUTE_PROCESS(COMMAND "${BASH_EXECUTABLE}" -c "cd ${CMAKE_SOURCE_DIR} && ${CMAKE_SOURCE_DIR}/Utilities/SetupForDevelopment.sh copyOnly"
+    OUTPUT_VARIABLE _bashOutput
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}}
+  )
 ENDIF()
 
 # --------------------------------------------------------------------------

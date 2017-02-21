@@ -13,6 +13,9 @@
 // OvrvisionPro SDK includes
 #include <ovrvision_pro.h>
 
+// OpenCV includes
+#include <opencv2/core/mat.hpp>
+
 /*!
   \class __vtkPlusOvrvisionProVideoSource_h
   \brief Class for providing video input from the OvrvisionPro stereo camera device
@@ -22,8 +25,8 @@ class vtkPlusDataCollectionExport vtkPlusOvrvisionProVideoSource : public vtkPlu
 {
 public:
   static vtkPlusOvrvisionProVideoSource* New();
-  vtkTypeMacro( vtkPlusOvrvisionProVideoSource, vtkPlusDevice );
-  void PrintSelf( ostream& os, vtkIndent indent );
+  vtkTypeMacro(vtkPlusOvrvisionProVideoSource, vtkPlusDevice);
+  void PrintSelf(ostream& os, vtkIndent indent);
 
   virtual bool IsTracker() const
   {
@@ -31,30 +34,30 @@ public:
   }
 
   /// Read configuration from xml data
-  virtual PlusStatus ReadConfiguration( vtkXMLDataElement* config );
+  virtual PlusStatus ReadConfiguration(vtkXMLDataElement* config);
   /// Write configuration to xml data
-  virtual PlusStatus WriteConfiguration( vtkXMLDataElement* config );
+  virtual PlusStatus WriteConfiguration(vtkXMLDataElement* config);
 
   /// Perform any completion tasks once configured
   virtual PlusStatus NotifyConfigured();
 
-  vtkGetStringMacro( LeftEyeDataSourceName );
-  vtkGetStringMacro( RightEyeDataSourceName );
-  vtkGetVector2Macro( Resolution, int );
-  vtkGetMacro( Framerate, int );
-  vtkGetMacro( CameraSync, bool );
-  vtkGetStringMacro( ProcessingModeName );
-  vtkGetStringMacro(Vendor);
+  std::string GetLeftEyeDataSourceName() const;
+  std::string GetRightEyeDataSourceName() const;
+  std::string GetProcessingModeName() const;
+  std::string GetVendor() const;
+
+  vtkGetVector2Macro(Resolution, int);
+  vtkGetMacro(Framerate, int);
+  vtkGetMacro(CameraSync, bool);
   vtkSetMacro(Exposure, int);
 
 protected:
-  vtkSetStringMacro( LeftEyeDataSourceName );
-  vtkSetStringMacro( RightEyeDataSourceName );
-  vtkSetVector2Macro( Resolution, int );
-  vtkSetStringMacro( ProcessingModeName );
-  vtkSetMacro( Framerate, int );
-  vtkSetMacro( CameraSync, bool );
-  vtkSetStringMacro(Vendor);
+  void SetLeftEyeDataSourceName(const std::string& leftEyeDataSourceName);
+  void SetRightEyeDataSourceName(const std::string& rightEyeDataSourceName) { this->RightEyeDataSourceName = rightEyeDataSourceName; }
+  void SetVendor(const std::string& vendor);
+  void SetProcessingModeName(const std::string& processingModeName);
+
+  vtkSetMacro(CameraSync, bool);
   vtkGetMacro(Exposure, int);
 
   /// Device-specific connect
@@ -66,8 +69,10 @@ protected:
   /// Device-specific on-update function
   virtual PlusStatus InternalUpdate();
 
-  bool ConfigureRequestedFormat();
   void ConfigureProcessingMode();
+
+  static std::string CamPropToString(OVR::Camprop format);
+  static OVR::Camprop StringToCamProp(const std::string& format);
 
 protected:
   vtkPlusOvrvisionProVideoSource();
@@ -84,22 +89,30 @@ protected:
   // Cache variables from the config file
   int Resolution[2];
   int Framerate;
-  char* ProcessingModeName;
+  std::string ProcessingModeName;
   bool IsCapturingRGB;
-  char* Vendor;
+  std::string Vendor;
   int Exposure;
 
   // Record which data source corresponds to which eye
-  char* LeftEyeDataSourceName;
-  char* RightEyeDataSourceName;
+  std::string LeftEyeDataSourceName;
+  std::string RightEyeDataSourceName;
 
   vtkPlusDataSource* LeftEyeDataSource;
   vtkPlusDataSource* RightEyeDataSource;
 
+#if defined(PLUS_USE_OPENCL)
+  cv::UMat LeftImageCL;
+  cv::UMat RightImageCL;
+#endif
+
+  cv::Mat LeftImage;
+  cv::Mat RightImage;
+
 private:
   static vtkPlusOvrvisionProVideoSource* ActiveDevice;
-  vtkPlusOvrvisionProVideoSource( const vtkPlusOvrvisionProVideoSource& ); // Not implemented.
-  void operator=( const vtkPlusOvrvisionProVideoSource& ); // Not implemented.
+  vtkPlusOvrvisionProVideoSource(const vtkPlusOvrvisionProVideoSource&);   // Not implemented.
+  void operator=(const vtkPlusOvrvisionProVideoSource&);   // Not implemented.
 };
 
 #endif

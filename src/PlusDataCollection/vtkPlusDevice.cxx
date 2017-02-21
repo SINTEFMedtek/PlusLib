@@ -554,10 +554,10 @@ PlusStatus vtkPlusDevice::GetInputDevices(std::vector<vtkPlusDevice*>& outDevice
 //----------------------------------------------------------------------------
 PlusStatus vtkPlusDevice::GetInputDevicesRecursive(std::vector<vtkPlusDevice*>& outDeviceList) const
 {
-  for (auto channel : this->InputChannels)
+  for (auto it = this->InputChannels.begin(); it != this->InputChannels.end(); ++it)
   {
-    channel->GetOwnerDevice()->GetInputDevicesRecursive(outDeviceList);
-    outDeviceList.push_back(channel->GetOwnerDevice());
+    (*it)->GetOwnerDevice()->GetInputDevicesRecursive(outDeviceList);
+    outDeviceList.push_back((*it)->GetOwnerDevice());
   }
 
   return PLUS_SUCCESS;
@@ -653,7 +653,7 @@ bool vtkPlusDevice::IsRecording() const
 }
 
 //----------------------------------------------------------------------------
-const std::string& vtkPlusDevice::GetDeviceId() const
+std::string vtkPlusDevice::GetDeviceId() const
 {
   return this->DeviceId;
 }
@@ -810,7 +810,7 @@ void vtkPlusDevice::SetToolReferenceFrameName(const std::string& frameName)
 }
 
 //----------------------------------------------------------------------------
-const std::string& vtkPlusDevice::GetToolReferenceFrameName() const
+std::string vtkPlusDevice::GetToolReferenceFrameName() const
 {
   return this->ToolReferenceFrameName;
 }
