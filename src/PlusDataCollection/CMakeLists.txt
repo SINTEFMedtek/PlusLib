@@ -877,6 +877,7 @@ IF (PLUS_USE_BKPROFOCUS_VIDEO)
     GrabbieLib
     vtkpng
     vtkInteractionImage
+    vtkPlusRendering
     )
 
   # CameraLink interface
