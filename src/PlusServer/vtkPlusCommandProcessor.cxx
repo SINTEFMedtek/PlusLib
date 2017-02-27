@@ -28,6 +28,7 @@ See License.txt for details.
 #include "vtkPlusUpdateTransformCommand.h"
 #include "vtkPlusVersionCommand.h"
 #include "vtkXMLUtilities.h"
+#include "vtkPlusGetCommand.h"
 
 vtkStandardNewMacro(vtkPlusCommandProcessor);
 
@@ -48,6 +49,7 @@ vtkPlusCommandProcessor::vtkPlusCommandProcessor()
   RegisterPlusCommand(vtkSmartPointer<vtkPlusSaveConfigCommand>::New());
   RegisterPlusCommand(vtkSmartPointer<vtkPlusSendTextCommand>::New());
   RegisterPlusCommand(vtkSmartPointer<vtkPlusVersionCommand>::New());
+  RegisterPlusCommand(vtkSmartPointer<vtkPlusGetCommand>::New());
 #ifdef PLUS_USE_STEALTHLINK
   RegisterPlusCommand(vtkSmartPointer<vtkPlusStealthLinkCommand>::New());
 #endif
@@ -236,6 +238,7 @@ vtkPlusCommand* vtkPlusCommandProcessor::CreatePlusCommand(const std::string& co
 //------------------------------------------------------------------------------
 PlusStatus vtkPlusCommandProcessor::QueueCommand(bool respondUsingIGTLCommand, unsigned int clientId, const std::string& commandName, const std::string& commandString, const std::string& deviceName, uint32_t uid)
 {
+	LOG_DEBUG("QueueCommand respondUsingIGTLCommand: " << respondUsingIGTLCommand << " clientId: " << clientId << " commandName: " << commandName << " deviceName: " << deviceName << " commandString: " << commandString);
   if (commandString.empty())
   {
     LOG_ERROR("Command string is undefined");
@@ -247,8 +250,11 @@ PlusStatus vtkPlusCommandProcessor::QueueCommand(bool respondUsingIGTLCommand, u
     LOG_ERROR("Command name is undefined");
     return PLUS_FAIL;
   }
-
-  vtkSmartPointer<vtkPlusCommand> cmd = vtkSmartPointer<vtkPlusCommand>::Take(CreatePlusCommand(commandName, commandString));
+  vtkSmartPointer<vtkPlusCommand> cmd;
+  if (commandName != "GetDeviceParameters")
+	  cmd = vtkSmartPointer<vtkPlusCommand>::Take(CreatePlusCommand(commandName, commandString));
+  else
+      cmd = vtkSmartPointer<vtkPlusCommand>::Take(CreatePlusCommand("Get", commandString));
   if (cmd.GetPointer() == NULL)
   {
     if (!respondUsingIGTLCommand)

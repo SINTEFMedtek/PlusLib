@@ -15,6 +15,7 @@ SET(PlusServer_SRCS
   Commands/vtkPlusSendTextCommand.cxx
   Commands/vtkPlusGetImageCommand.cxx
   Commands/vtkPlusGetTransformCommand.cxx
+  Commands/vtkPlusGetCommand.cxx
   )
 
 IF(MSVC OR ${CMAKE_GENERATOR} MATCHES "Xcode")
@@ -33,6 +34,7 @@ IF(MSVC OR ${CMAKE_GENERATOR} MATCHES "Xcode")
     Commands/vtkPlusSendTextCommand.h
     Commands/vtkPlusGetImageCommand.h
     Commands/vtkPlusGetTransformCommand.h
+    Commands/vtkPlusGetCommand.h
     )
 ENDIF()
 
