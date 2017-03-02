@@ -215,8 +215,6 @@ protected:
 
   bool HasGracePeriodExpired();
 
-  //static PlusStatus vtkPlusOpenIGTLinkServer::GetDeviceAndChannel(vtkPlusOpenIGTLinkServer& self, vtkPlusDevice** aDevice, vtkPlusChannel** aChannel);
-
 private:
   vtkPlusOpenIGTLinkServer(const vtkPlusOpenIGTLinkServer&);
   void operator=(const vtkPlusOpenIGTLinkServer&);
