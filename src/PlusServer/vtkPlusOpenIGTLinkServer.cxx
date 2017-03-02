@@ -281,6 +281,56 @@ void* vtkPlusOpenIGTLinkServer::ConnectionReceiverThread(vtkMultiThreader::Threa
 }
 
 //----------------------------------------------------------------------------
+/*PlusStatus vtkPlusOpenIGTLinkServer::GetDeviceAndChannel(vtkPlusOpenIGTLinkServer& self, vtkPlusDevice** aDevice, vtkPlusChannel** aChannel)
+{
+	DeviceCollection aCollection;
+	if (self.DataCollector->GetDevices(aCollection) != PLUS_SUCCESS || aCollection.size() == 0)
+	{
+		LOG_ERROR("Unable to retrieve devices. Check configuration and connection.");
+		return PLUS_FAIL;
+	}
+
+	// Find the requested channel ID in all the devices
+	for (DeviceCollectionIterator it = aCollection.begin(); it != aCollection.end(); ++it)
+	{
+		*aDevice = *it;
+		if ((*aDevice)->GetOutputChannelByName(*aChannel, self.GetOutputChannelId()) == PLUS_SUCCESS)
+		{
+			break;
+		}
+	}
+
+	if (*aChannel == NULL)
+	{
+		// The requested channel ID is not found
+		if (self.GetOutputChannelId() && strlen(self.GetOutputChannelId()) > 0)
+		{
+			// the user explicitly requested a specific channel, but none was found by that name
+			// this is an error
+			LOG_ERROR("Unable to start data sending. OutputChannelId not found: " << self.GetOutputChannelId());
+			return PLUS_FAIL;
+		}
+		// the user did not specify any channel, so just use the first channel that can be found in any device
+		for (DeviceCollectionIterator it = aCollection.begin(); it != aCollection.end(); ++it)
+		{
+			*aDevice = *it;
+			if ((*aDevice)->OutputChannelCount() > 0)
+			{
+				*aChannel = *((*aDevice)->GetOutputChannelsStart());
+				break;
+			}
+		}
+	}
+
+	// If we didn't find any channel then return
+	if (*aChannel == NULL)
+	{
+		LOG_WARNING("There are no channels to broadcast. Only command processing is available.");
+	}
+	return PLUS_SUCCESS;
+}*/
+
+//----------------------------------------------------------------------------
 void* vtkPlusOpenIGTLinkServer::DataSenderThread(vtkMultiThreader::ThreadInfo* data)
 {
   vtkPlusOpenIGTLinkServer* self = (vtkPlusOpenIGTLinkServer*)(data->UserData);
@@ -288,22 +338,22 @@ void* vtkPlusOpenIGTLinkServer::DataSenderThread(vtkMultiThreader::ThreadInfo* d
 
   vtkPlusDevice* aDevice(NULL);
   vtkPlusChannel* aChannel(NULL);
-
+  
   DeviceCollection aCollection;
   if (self->DataCollector->GetDevices(aCollection) != PLUS_SUCCESS || aCollection.size() == 0)
   {
-    LOG_ERROR("Unable to retrieve devices. Check configuration and connection.");
-    return NULL;
+	  LOG_ERROR("Unable to retrieve devices. Check configuration and connection.");
+	  return NULL;
   }
 
   // Find the requested channel ID in all the devices
   for (DeviceCollectionIterator it = aCollection.begin(); it != aCollection.end(); ++it)
   {
-    aDevice = *it;
-    if (aDevice->GetOutputChannelByName(aChannel, self->GetOutputChannelId()) == PLUS_SUCCESS)
-    {
-      break;
-    }
+	  aDevice = *it;
+	  if (aDevice->GetOutputChannelByName(aChannel, self->GetOutputChannelId()) == PLUS_SUCCESS)
+	  {
+		  break;
+	  }
   }
 
   if (aChannel == NULL)
@@ -331,8 +381,22 @@ void* vtkPlusOpenIGTLinkServer::DataSenderThread(vtkMultiThreader::ThreadInfo* d
   // If we didn't find any channel then return
   if (aChannel == NULL)
   {
-    LOG_WARNING("There are no channels to broadcast. Only command processing is available.");
+	  LOG_WARNING("There are no channels to broadcast. Only command processing is available.");
   }
+ 
+
+//  if (GetDeviceAndChannel(*self, &aDevice, &aChannel) != PLUS_SUCCESS)
+//	  return NULL;
+ 
+  if (aDevice)
+	  LOG_DEBUG("Device: " << aDevice->GetDeviceId())
+  else
+	  LOG_DEBUG("Got no device");
+
+  if (aChannel)
+	  LOG_DEBUG("Channel: " << aChannel->GetChannelId())
+  else
+	  LOG_DEBUG("Got no channel");
 
   self->BroadcastChannel = aChannel;
   if (self->BroadcastChannel)
@@ -540,6 +604,22 @@ void* vtkPlusOpenIGTLinkServer::DataReceiverThread(vtkMultiThreader::ThreadInfo*
   client->DataReceiverActive.second = true;
   vtkPlusOpenIGTLinkServer* self = client->Server;
 
+//  vtkPlusDevice* aDevice(NULL);
+//  vtkPlusChannel* aChannel(NULL);
+
+//  if (GetDeviceAndChannel(*self, &aDevice, &aChannel) != PLUS_SUCCESS)
+//	  return NULL;
+
+/*  if (aDevice)
+	  LOG_DEBUG("Device: " << aDevice->GetDeviceId())
+  else
+	  LOG_DEBUG("Got no device");
+
+  if (aChannel)
+	  LOG_DEBUG("Channel: " << aChannel->GetChannelId())
+  else
+	  LOG_DEBUG("Got no channel");*/
+
   /*! Store the IDs of recent commands to be able to detect duplicate command IDs */
   std::deque<uint32_t> previousCommandIds;
 
@@ -668,6 +748,8 @@ void* vtkPlusOpenIGTLinkServer::DataReceiverThread(vtkMultiThreader::ThreadInfo*
       commandMsg->AllocateBuffer();
       clientSocket->Receive(commandMsg->GetBufferBodyPointer(), commandMsg->GetBufferBodySize());
 
+	  LOG_DEBUG("Got command");
+
       int c = commandMsg->Unpack(self->IgtlMessageCrcCheckEnabled);
       if (c & igtl::MessageHeader::UNPACK_BODY)
       {
@@ -675,6 +757,9 @@ void* vtkPlusOpenIGTLinkServer::DataReceiverThread(vtkMultiThreader::ThreadInfo*
 
         uint32_t uid;
         uid = commandMsg->GetCommandId();
+
+		LOG_DEBUG("Command device name: " << headerMsg->GetDeviceName());
+		LOG_DEBUG("Command uid: " << uid);
 
         if (std::find(previousCommandIds.begin(), previousCommandIds.end(), uid) != previousCommandIds.end())
         {
@@ -692,7 +777,20 @@ void* vtkPlusOpenIGTLinkServer::DataReceiverThread(vtkMultiThreader::ThreadInfo*
         LOG_DEBUG("Received header version " << commandMsg->GetHeaderVersion() << " command " << commandMsg->GetCommandName()
                   << " from client " << clientId << ", device " << deviceName << " with UID " << uid << ": " << commandMsg->GetCommandContent());
 
-        self->PlusCommandProcessor->QueueCommand(true, clientId, commandMsg->GetCommandName(), commandMsg->GetCommandContent(), deviceName, uid);
+		//LOG_DEBUG("Existing device uid: " << aDevice->GetDeviceId());
+
+		//Send command to device
+		/*if (aDevice->GetDeviceId() == deviceName)
+		{
+			std::string commandResponse;
+			LOG_DEBUG("Send command to device: " << aDevice->GetDeviceId());
+			aDevice->Command(commandMsg->GetCommandName(), commandMsg->GetCommandContent(), commandResponse);
+			self->PlusCommandProcessor->QueueCommandResponse(PLUS_SUCCESS, deviceName, clientId, commandMsg->GetCommandName(), uid, commandResponse);
+		}
+		else
+		{*/
+			self->PlusCommandProcessor->QueueCommand(true, clientId, commandMsg->GetCommandName(), commandMsg->GetCommandContent(), deviceName, uid);
+		//}
       }
       else
       {
@@ -828,6 +926,8 @@ PlusStatus vtkPlusOpenIGTLinkServer::SendTrackedFrame(PlusTrackedFrame& trackedF
 {
   int numberOfErrors = 0;
 
+
+  
   // Update transform repository with the tracked frame
   if (this->TransformRepository != NULL)
   {
@@ -880,6 +980,11 @@ PlusStatus vtkPlusOpenIGTLinkServer::SendTrackedFrame(PlusTrackedFrame& trackedF
                    << "  Timestamp: " << std::fixed << ts->GetTimeStamp() << ").");
           break;
         }
+
+
+		//Send test message
+		//this->PlusCommandProcessor->QueueStringResponse(PLUS_SUCCESS, std::string(vtkPlusCommand::DEVICE_NAME_REPLY), std::string("Test melding"));
+		//this->PlusCommandProcessor->QueueStringResponse(PLUS_SUCCESS, igtlMessage->GetDeviceName(), std::string("Test melding"));
 
         // Update the TDATA timestamp, even if TDATA isn't sent (cheaper than checking for existing TDATA message type)
         clientIterator->ClientInfo.LastTDATASentTimeStamp = trackedFrame.GetTimestamp();
