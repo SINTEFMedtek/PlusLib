@@ -52,20 +52,93 @@ PlusStatus vtkPlusGetCommand::ReadConfiguration(vtkXMLDataElement* aConfig)
 	{
 		return PLUS_FAIL;
 	}
-	//TODO: Read all possible params
 	XML_READ_STRING_ATTRIBUTE_OPTIONAL(DeviceId, aConfig);
 //	XML_READ_STRING_ATTRIBUTE_OPTIONAL(Text, aConfig);
-	XML_READ_SCALAR_ATTRIBUTE_OPTIONAL(double, Depth, aConfig);
-	XML_READ_SCALAR_ATTRIBUTE_OPTIONAL(double, Gain, aConfig);
+
+	//Used for reading values from message into attribute, use in SetCommand
+	//XML_READ_SCALAR_ATTRIBUTE_OPTIONAL(double, Depth, aConfig);
+	//XML_READ_SCALAR_ATTRIBUTE_OPTIONAL(double, Gain, aConfig);
+
+	std::vector<std::string> parameterList;
+	if (this->GetParameterList(parameterList, aConfig) != PLUS_SUCCESS)
+		return PLUS_FAIL;
+
+	this->CreateParameterReplies(parameterList);
+
 	return PLUS_SUCCESS;
+}
+
+
+PlusStatus vtkPlusGetCommand::CreateParameterReplies(std::vector<std::string>& parameterList)
+{
+	std::vector<std::string> validParameters;
+	this->GetValidParameterNames(validParameters);
+
+	//ParameterReplies += "<Command>\n";
+	ParameterReplies += "\n";
+
+	std::vector<std::string>::iterator iter;
+	for (iter = parameterList.begin(); iter != parameterList.end(); ++iter)
+	{
+		ParameterReplies += "<Result success=";
+		if (std::find(validParameters.begin(), validParameters.end(), *iter) != validParameters.end())
+		{
+			ParameterReplies += "true";
+		}
+		else
+		{
+			ParameterReplies += "false";
+		}
+		ParameterReplies += "><Paramter Name=\"" + *iter + "\"/></Result>\n";
+	}
+	//ParameterReplies += "</Command>\n";
+	return PLUS_SUCCESS;
+}
+
+
+PlusStatus vtkPlusGetCommand::GetParameterList(std::vector<std::string>& parameterList, vtkXMLDataElement* aConfig)
+{
+	LOG_DEBUG("NumberOfNestedElements: " << aConfig->GetNumberOfNestedElements());
+	int numElements = aConfig->GetNumberOfNestedElements();
+	for (int i = 0; i < numElements; ++i)
+	{
+		vtkXMLDataElement* element = aConfig->GetNestedElement(i);
+		if (!element)
+		{
+			LOG_ERROR("Got no element");
+			return PLUS_FAIL;
+		}
+
+		if (element->GetAttribute("Name"))
+		{
+//			LOG_DEBUG("Name: " << element->GetAttribute("Name"));
+			parameterList.push_back(element->GetAttribute("Name"));
+		}
+		else
+		{
+			LOG_ERROR("Element got no Name");
+			return PLUS_FAIL;
+		}
+	}
+	return PLUS_SUCCESS;
+}
+
+void vtkPlusGetCommand::GetValidParameterNames(std::vector<std::string>& parameterNames)
+{
+	//Keep sorted
+	parameterNames.clear();
+	parameterNames.push_back("Depth");
+	parameterNames.push_back("Gain");
 }
 
 PlusStatus vtkPlusGetCommand::Execute()
 {
 	LOG_DEBUG("vtkPlusGetCommand::Execute: " << (!this->Name.empty() ? this->Name : "(undefined)")
-		<< ", device: " << (this->DeviceName.empty() ? "(undefined)" : this->DeviceName));
+		<< ", device: " << (this->DeviceName.empty() ? "(undefined)" : this->DeviceName)
 //		<< ", device: " << (this->DeviceId.empty() ? "(undefined)" : this->DeviceId));
 //		<< ", text: " << (this->Text.empty() ? "(undefined)" : this->Text));
+		<< ", Depth: " <<  this->Depth
+		<< ", Gain: " <<  this->Gain);
 
 	vtkPlusDataCollector* dataCollector = GetDataCollector();
 	if (dataCollector == NULL)
@@ -88,12 +161,7 @@ PlusStatus vtkPlusGetCommand::Execute()
 		return PLUS_FAIL;
 	}
 
-
-	std::string response;
-	//response << "Got Get command for device: " + this->DeviceName.c_str() << " DeviceId: " << DeviceId.c_str() << " Depth: " << Depth << " Gain: " << Gain;
-//	response += std::string("Got Get command for device: ") + this->DeviceName + std::string(" DeviceId: ") + DeviceId + std::string(" Depth: ") + Depth + std::string(" Gain: ") + Gain;
-	response += std::string("Got Get command for device: ") + this->DeviceName;
-	this->QueueCommandResponse(PLUS_SUCCESS, response);
+	this->QueueCommandResponse(PLUS_SUCCESS, ParameterReplies);
 	return PLUS_SUCCESS;
 }
 

@@ -42,9 +42,14 @@ protected:
 private:
 	std::string DeviceId;
 	double Depth, Gain;
+	std::string ParameterReplies;
 
 	vtkPlusGetCommand(const vtkPlusGetCommand&);
 	void operator=(const vtkPlusGetCommand&);
+
+	void GetValidParameterNames(std::vector<std::string>& parameterNames);
+	PlusStatus GetParameterList(std::vector<std::string>& parameterList, vtkXMLDataElement* aConfig);
+	PlusStatus CreateParameterReplies(std::vector<std::string>& parameterList);
 };
 
 #endif
