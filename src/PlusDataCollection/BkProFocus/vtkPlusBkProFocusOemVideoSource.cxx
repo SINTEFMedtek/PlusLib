@@ -887,3 +887,10 @@ void vtkPlusBkProFocusOemVideoSource::GetValidParameterNames(std::vector<std::st
 	parameterNames.push_back("Depth");
 	parameterNames.push_back("Gain");
 }
+
+//----------------------------------------------------------------------------
+void vtkPlusBkProFocusOemVideoSource::GenerateParameterAnswers(const std::vector<std::string> parameterNames)
+{
+	//TODO: Create reply messages based on US parameters
+	LOG_DEBUG("vtkPlusBkProFocusOemVideoSource::GenerateParameterAnswers: Not implemented yet!");
+}

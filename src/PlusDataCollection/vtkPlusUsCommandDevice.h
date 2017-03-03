@@ -9,6 +9,7 @@ public:
 	static vtkPlusUsCommandDevice *New();
 	vtkTypeMacro(vtkPlusUsCommandDevice, vtkPlusDevice);
 	virtual void GetValidParameterNames(std::vector<std::string>& parameterNames);
+	virtual void GenerateParameterAnswers(const std::vector<std::string> parameterNames);
 };
 
 #endif

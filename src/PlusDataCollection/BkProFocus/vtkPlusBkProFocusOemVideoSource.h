@@ -62,6 +62,7 @@ public:
 
 
   void GetValidParameterNames(std::vector<std::string>& parameterNames);
+  void GenerateParameterAnswers(const std::vector<std::string> parameterNames);
 
 protected:
 	

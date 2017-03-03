@@ -71,7 +71,7 @@ PlusStatus vtkPlusGetCommand::CreateParameterReplies(vtkPlusUsCommandDevice* usC
 {
 	std::vector<std::string> validParameters;
 	usCommandDevice->GetValidParameterNames(validParameters);
-
+	
 	//ParameterReplies += "<Command>\n";
 	ParameterReplies += "\n";
 
@@ -90,6 +90,9 @@ PlusStatus vtkPlusGetCommand::CreateParameterReplies(vtkPlusUsCommandDevice* usC
 		ParameterReplies += "><Paramter Name=\"" + *iter + "\"/></Result>\n";
 	}
 	//ParameterReplies += "</Command>\n";
+
+	usCommandDevice->GenerateParameterAnswers(ParameterList);
+
 	return PLUS_SUCCESS;
 }
 
