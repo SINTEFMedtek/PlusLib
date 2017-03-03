@@ -4,6 +4,7 @@
 #include "vtkPlusServerExport.h"
 
 #include "vtkPlusCommand.h"
+class vtkPlusUsCommandDevice;
 
 class vtkPlusServerExport vtkPlusGetCommand : public vtkPlusCommand
 {
@@ -43,13 +44,13 @@ private:
 	std::string DeviceId;
 	double Depth, Gain;
 	std::string ParameterReplies;
+	std::vector<std::string> ParameterList;
 
 	vtkPlusGetCommand(const vtkPlusGetCommand&);
 	void operator=(const vtkPlusGetCommand&);
 
-	void GetValidParameterNames(std::vector<std::string>& parameterNames);
-	PlusStatus GetParameterList(std::vector<std::string>& parameterList, vtkXMLDataElement* aConfig);
-	PlusStatus CreateParameterReplies(std::vector<std::string>& parameterList);
+	PlusStatus CreateParameterList(vtkXMLDataElement* aConfig);
+	PlusStatus CreateParameterReplies(vtkPlusUsCommandDevice* usCommandDevice);
 };
 
 #endif

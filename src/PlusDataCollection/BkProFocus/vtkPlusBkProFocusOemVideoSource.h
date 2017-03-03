@@ -11,7 +11,7 @@
 
 #include "vtkPlusDataCollectionExport.h"
 
-#include "vtkPlusDevice.h"
+#include "vtkPlusUsCommandDevice.h"
 
 /*!
   \class vtkPlusBkProFocusOemVideoSource 
@@ -22,11 +22,11 @@
 
   \ingroup PlusLibDataCollection
 */
-class vtkPlusDataCollectionExport vtkPlusBkProFocusOemVideoSource : public vtkPlusDevice
+class vtkPlusDataCollectionExport vtkPlusBkProFocusOemVideoSource : public vtkPlusUsCommandDevice
 {
 public:
   static vtkPlusBkProFocusOemVideoSource *New();
-  vtkTypeMacro(vtkPlusBkProFocusOemVideoSource,vtkPlusDevice);
+  vtkTypeMacro(vtkPlusBkProFocusOemVideoSource, vtkPlusUsCommandDevice);
   virtual void PrintSelf(ostream& os, vtkIndent indent) VTK_OVERRIDE;
 
   virtual bool IsTracker() const { return false; }
@@ -59,6 +59,9 @@ public:
   from BK but it allows faster image acquisition.
   */
   vtkBooleanMacro(ContinuousStreamingEnabled, bool);
+
+
+  void GetValidParameterNames(std::vector<std::string>& parameterNames);
 
 protected:
 	

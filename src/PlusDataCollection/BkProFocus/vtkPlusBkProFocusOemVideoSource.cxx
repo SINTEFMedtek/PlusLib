@@ -878,3 +878,12 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::DecodePngImage(unsigned char* pngBuf
 
   return status;
 }
+
+
+//----------------------------------------------------------------------------
+void vtkPlusBkProFocusOemVideoSource::GetValidParameterNames(std::vector<std::string>& parameterNames)
+{
+	parameterNames.clear();
+	parameterNames.push_back("Depth");
+	parameterNames.push_back("Gain");
+}

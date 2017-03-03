@@ -2,6 +2,7 @@
 #include "vtkPlusGetCommand.h"
 
 #include "vtkPlusDataCollector.h"
+#include "vtkPlusUsCommandDevice.h"
 
 vtkStandardNewMacro(vtkPlusGetCommand);
 
@@ -59,26 +60,23 @@ PlusStatus vtkPlusGetCommand::ReadConfiguration(vtkXMLDataElement* aConfig)
 	//XML_READ_SCALAR_ATTRIBUTE_OPTIONAL(double, Depth, aConfig);
 	//XML_READ_SCALAR_ATTRIBUTE_OPTIONAL(double, Gain, aConfig);
 
-	std::vector<std::string> parameterList;
-	if (this->GetParameterList(parameterList, aConfig) != PLUS_SUCCESS)
+	if (this->CreateParameterList(aConfig) != PLUS_SUCCESS)
 		return PLUS_FAIL;
-
-	this->CreateParameterReplies(parameterList);
-
+	
 	return PLUS_SUCCESS;
 }
 
 
-PlusStatus vtkPlusGetCommand::CreateParameterReplies(std::vector<std::string>& parameterList)
+PlusStatus vtkPlusGetCommand::CreateParameterReplies(vtkPlusUsCommandDevice* usCommandDevice)
 {
 	std::vector<std::string> validParameters;
-	this->GetValidParameterNames(validParameters);
+	usCommandDevice->GetValidParameterNames(validParameters);
 
 	//ParameterReplies += "<Command>\n";
 	ParameterReplies += "\n";
 
 	std::vector<std::string>::iterator iter;
-	for (iter = parameterList.begin(); iter != parameterList.end(); ++iter)
+	for (iter = ParameterList.begin(); iter != ParameterList.end(); ++iter)
 	{
 		ParameterReplies += "<Result success=";
 		if (std::find(validParameters.begin(), validParameters.end(), *iter) != validParameters.end())
@@ -96,8 +94,9 @@ PlusStatus vtkPlusGetCommand::CreateParameterReplies(std::vector<std::string>& p
 }
 
 
-PlusStatus vtkPlusGetCommand::GetParameterList(std::vector<std::string>& parameterList, vtkXMLDataElement* aConfig)
+PlusStatus vtkPlusGetCommand::CreateParameterList(vtkXMLDataElement* aConfig)
 {
+	ParameterList.clear();
 	LOG_DEBUG("NumberOfNestedElements: " << aConfig->GetNumberOfNestedElements());
 	int numElements = aConfig->GetNumberOfNestedElements();
 	for (int i = 0; i < numElements; ++i)
@@ -112,7 +111,7 @@ PlusStatus vtkPlusGetCommand::GetParameterList(std::vector<std::string>& paramet
 		if (element->GetAttribute("Name"))
 		{
 //			LOG_DEBUG("Name: " << element->GetAttribute("Name"));
-			parameterList.push_back(element->GetAttribute("Name"));
+			ParameterList.push_back(element->GetAttribute("Name"));
 		}
 		else
 		{
@@ -121,14 +120,6 @@ PlusStatus vtkPlusGetCommand::GetParameterList(std::vector<std::string>& paramet
 		}
 	}
 	return PLUS_SUCCESS;
-}
-
-void vtkPlusGetCommand::GetValidParameterNames(std::vector<std::string>& parameterNames)
-{
-	//Keep sorted
-	parameterNames.clear();
-	parameterNames.push_back("Depth");
-	parameterNames.push_back("Gain");
 }
 
 PlusStatus vtkPlusGetCommand::Execute()
@@ -161,6 +152,18 @@ PlusStatus vtkPlusGetCommand::Execute()
 		return PLUS_FAIL;
 	}
 
+	vtkPlusUsCommandDevice* usCommandDevice = dynamic_cast<vtkPlusUsCommandDevice*>(device);
+	if (!usCommandDevice)
+	{
+		this->QueueCommandResponse(PLUS_FAIL, "Command failed. See error message.", std::string("Device ")
+			+ (this->DeviceName.empty() ? "(undefined)" : this->DeviceName) + std::string(" is not a vtkPlusUsCommandDevice."));
+		return PLUS_FAIL;
+	}
+
+	if (this->CreateParameterReplies(usCommandDevice) != PLUS_SUCCESS)
+	{
+		return PLUS_FAIL;
+	}
 	this->QueueCommandResponse(PLUS_SUCCESS, ParameterReplies);
 	return PLUS_SUCCESS;
 }
