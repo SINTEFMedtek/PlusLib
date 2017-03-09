@@ -62,18 +62,20 @@ public:
 
 
   void GetValidParameterNames(std::vector<std::string>& parameterNames);
-  void GenerateParameterAnswers(const std::vector<std::string> parameterNames);
+  //void GenerateParameterAnswers(const std::vector<std::string> parameterNames);
+  PlusStatus GenerateParameterAnswers(const std::vector<std::string> parameterNames, std::map<std::string, std::string>& parameterReplies);
 
 protected:
 	
   // Size of the ultrasound image. Only used if ContinuousStreamingEnabled is true.
-  int UltrasoundWindowSize[2];
+  unsigned int UltrasoundWindowSize[2];
 
   //Ultrasound sector geometry, values read from the scanner
   double StartLineX_m, StartLineY_m, StartLineAngle_rad, StartDepth_m, StopLineX_m, StopLineY_m, StopLineAngle_rad, StopDepth_m;
   int pixelLeft_pix, pixelTop_pix, pixelRight_pix, pixelBottom_pix;
   double tissueLeft_m, tissueTop_m, tissueRight_m, tissueBottom_m;
   //double resolutionX_m, resolutionY_m, probeCenterX_m, probeCenterY_m, probeRadius_m;
+  int gain_percent;
 
   /*! Constructor */
   vtkPlusBkProFocusOemVideoSource();
@@ -105,12 +107,19 @@ protected:
   PlusStatus QueryGeometryTissue();
   //PlusStatus QueryTransverseImageCalibration();
   //PlusStatus QuerySagImageCalibration();
+  PlusStatus QueryGain();
+
   PlusStatus CommandPowerDopplerOn();
   PlusStatus SendReceiveQuery(std::string query, size_t replyBytes);
 
   PlusStatus GetFullIniFilePath(std::string &fullPath);
 
   PlusStatus DecodePngImage(unsigned char* pngBuffer, unsigned int pngBufferSize, vtkImageData* decodedImage);
+
+  PlusStatus UpdateScannerParameters();
+
+  std::string CalculateDepth();
+  std::string CalculateGain();
 
   /*! BK ini file storing the connection and acquisition settings */
   char* IniFileName;

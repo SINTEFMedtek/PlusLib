@@ -141,10 +141,6 @@ PlusStatus vtkPlusIgtlMessageFactory::PackMessages(const PlusIgtlClientInfo& cli
   {
     std::string messageType = (*messageTypeIterator);
 	LOG_INFO("PackMessages. Message: " << messageType);
-	if (trackedFrame.IsCustomFrameFieldDefined("testParameter"))
-	{
-		LOG_INFO("testParameter: " << trackedFrame.GetCustomFrameField("testParameter"));
-	}
 
     igtl::MessageBase::Pointer igtlMessage;
     try
@@ -352,6 +348,7 @@ PlusStatus vtkPlusIgtlMessageFactory::PackMessages(const PlusIgtlClientInfo& cli
     {
       LOG_WARNING("This message type (" << messageType << ") is not supported!");
     }
+	
   }
 
   return (numberOfErrors == 0 ? PLUS_SUCCESS : PLUS_FAIL);

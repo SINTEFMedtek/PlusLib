@@ -69,9 +69,12 @@ PlusStatus vtkPlusGetCommand::ReadConfiguration(vtkXMLDataElement* aConfig)
 
 PlusStatus vtkPlusGetCommand::CreateParameterReplies(vtkPlusUsCommandDevice* usCommandDevice)
 {
-	std::vector<std::string> validParameters;
-	usCommandDevice->GetValidParameterNames(validParameters);
+	std::vector<std::string> validParametersFromDevice;
+	usCommandDevice->GetValidParameterNames(validParametersFromDevice);
 	
+	std::vector<std::string> validParameters;
+
+	ParameterReplies.clear();
 	//ParameterReplies += "<Command>\n";
 	ParameterReplies += "\n";
 
@@ -79,9 +82,10 @@ PlusStatus vtkPlusGetCommand::CreateParameterReplies(vtkPlusUsCommandDevice* usC
 	for (iter = ParameterList.begin(); iter != ParameterList.end(); ++iter)
 	{
 		ParameterReplies += "<Result success=";
-		if (std::find(validParameters.begin(), validParameters.end(), *iter) != validParameters.end())
+		if (std::find(validParametersFromDevice.begin(), validParametersFromDevice.end(), *iter) != validParametersFromDevice.end())
 		{
 			ParameterReplies += "true";
+			validParameters.push_back(*iter);
 		}
 		else
 		{
@@ -91,7 +95,19 @@ PlusStatus vtkPlusGetCommand::CreateParameterReplies(vtkPlusUsCommandDevice* usC
 	}
 	//ParameterReplies += "</Command>\n";
 
-	usCommandDevice->GenerateParameterAnswers(ParameterList);
+	std::map<std::string, std::string> parameterValues;
+	if (usCommandDevice->GenerateParameterAnswers(validParameters, parameterValues) != PLUS_SUCCESS)
+		return PLUS_FAIL;
+	//TODO: Generate message with value replies
+	
+	ParameterValueReplies.clear();
+	ParameterValueReplies += "\n";
+	//std::vector<std::string>::iterator iter;
+	for (iter = validParameters.begin(); iter != validParameters.end(); ++iter)
+	{
+		ParameterValueReplies += "<Parameter Name=\"" + *iter + "\" Value=\"" + parameterValues[*iter] + "\"/>\n";
+	}
+
 
 	return PLUS_SUCCESS;
 }
@@ -168,6 +184,7 @@ PlusStatus vtkPlusGetCommand::Execute()
 		return PLUS_FAIL;
 	}
 	this->QueueCommandResponse(PLUS_SUCCESS, ParameterReplies);
+	this->QueueCommandResponse(PLUS_SUCCESS, ParameterValueReplies);//TODO: Send as string message and not a RTS_COMMAND
 	return PLUS_SUCCESS;
 }
 

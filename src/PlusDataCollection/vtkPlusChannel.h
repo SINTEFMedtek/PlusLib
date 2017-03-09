@@ -174,6 +174,7 @@ protected:
   virtual int GetNumberOfFramesBetweenTimestamps(double aTimestampFrom, double aTimestampTo);
 
 protected:
+//  DataSourceContainer       ParameterDataSources; //Use FieldDataSources for now
   DataSourceContainer       FieldDataSources;
   DataSourceContainer       Tools;
   vtkPlusDataSource*        VideoSource;

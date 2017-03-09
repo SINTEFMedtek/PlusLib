@@ -123,6 +123,7 @@ vtkPlusBkProFocusOemVideoSource::vtkPlusBkProFocusOemVideoSource()
   this->tissueTop_m = 0;
   this->tissueRight_m = 0;
   this->tissueBottom_m = 0;
+  this->gain_percent = 0;
 
   this->RequireImageOrientationInConfiguration = true;
 
@@ -579,6 +580,22 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::QueryGeometryTissue()
 }
 
 //-----------------------------------------------------------------------------
+// QUERY:B_GAIN;
+PlusStatus vtkPlusBkProFocusOemVideoSource::QueryGain()
+{
+	std::string query = "QUERY:B_GAIN:A;";
+	LOG_TRACE("Query from vtkPlusBkProFocusOemVideoSource: " << query);
+
+	size_t replyBytes = 100;
+	PlusStatus retval = SendReceiveQuery(query, replyBytes);
+
+	sscanf(&(this->Internal->OemClientReadBuffer[0]), "DATA:B_GAIN:A %d;", &gain_percent);
+	LOG_TRACE("Ultrasound gain. gain_percent: " << gain_percent);
+
+	return retval;
+}
+
+//-----------------------------------------------------------------------------
 // QUERY:B_TRANS_IMAGE_CALIB; //Get only zeroes as return values
 /*PlusStatus vtkPlusBkProFocusOemVideoSource::QueryTransverseImageCalibration()
 {
@@ -889,8 +906,75 @@ void vtkPlusBkProFocusOemVideoSource::GetValidParameterNames(std::vector<std::st
 }
 
 //----------------------------------------------------------------------------
-void vtkPlusBkProFocusOemVideoSource::GenerateParameterAnswers(const std::vector<std::string> parameterNames)
+PlusStatus vtkPlusBkProFocusOemVideoSource::GenerateParameterAnswers(const std::vector<std::string> parameterNames, std::map<std::string, std::string>& parameterReplies)
 {
 	//TODO: Create reply messages based on US parameters
-	LOG_DEBUG("vtkPlusBkProFocusOemVideoSource::GenerateParameterAnswers: Not implemented yet!");
+	LOG_DEBUG("vtkPlusBkProFocusOemVideoSource::GenerateParameterAnswers: Not fully implemented yet!");
+
+	//TODO: Use either the existing variable FieldDataSources or create a new one: ParameterDataSources
+	//vtkSmartPointer<vtkPlusDataSource> aSource = vtkSmartPointer<vtkPlusDataSource>::New();
+
+	//this->AddFieldDataSource(aSource);
+
+	if (this->UpdateScannerParameters() != PLUS_SUCCESS)
+	{
+		//Disable for testing
+#ifndef OFFLINE_TESTING
+		return PLUS_FAIL;
+#endif
+	}
+
+	std::vector<std::string>::const_iterator iter;
+	for (iter = parameterNames.begin(); iter != parameterNames.end(); ++iter)
+	{
+		if ((*iter).compare("Depth") == 0)
+		{
+			parameterReplies[*iter] = this->CalculateDepth();
+		}
+		else if ((*iter).compare("Depth") == 0)
+		{
+			parameterReplies[*iter] = this->CalculateGain();
+		}
+		else
+		{
+			parameterReplies[*iter] = "Unknown parameter";
+		}
+	}
+	return PLUS_SUCCESS;
+}
+
+std::string vtkPlusBkProFocusOemVideoSource::CalculateDepth()
+{
+	double depth_mm = (StopDepth_m - StartDepth_m) / 1000.0;
+	return PlusCommon::ToString(depth_mm);
+}
+
+std::string vtkPlusBkProFocusOemVideoSource::CalculateGain()
+{
+	return PlusCommon::ToString(gain_percent);
+}
+
+PlusStatus vtkPlusBkProFocusOemVideoSource::UpdateScannerParameters()
+{
+	if (this->QueryImageSize() != PLUS_SUCCESS)
+	{
+		return PLUS_FAIL;
+	}
+	if (this->QueryGeometryScanarea() != PLUS_SUCCESS)
+	{
+		return PLUS_FAIL;
+	}
+	if (this->QueryGeometryPixel() != PLUS_SUCCESS)
+	{
+		return PLUS_FAIL;
+	}
+	if (this->QueryGeometryTissue() != PLUS_SUCCESS)
+	{
+		return PLUS_FAIL;
+	}
+	if (this->QueryGain() != PLUS_SUCCESS)
+	{
+		return PLUS_FAIL;
+	}
+	return PLUS_SUCCESS;
 }

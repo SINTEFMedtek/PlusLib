@@ -44,6 +44,7 @@ private:
 	std::string DeviceId;
 	double Depth, Gain;
 	std::string ParameterReplies;
+	std::string ParameterValueReplies;
 	std::vector<std::string> ParameterList;
 
 	vtkPlusGetCommand(const vtkPlusGetCommand&);
