@@ -81,6 +81,12 @@ public:
   inline DataSourceContainerConstIterator GetFieldDataSourcesStartConstIterator() const { return this->FieldDataSources.begin(); };
   inline DataSourceContainerConstIterator GetFieldDataSourcesEndConstIterator() const { return this->FieldDataSources.end(); };
 
+  PlusStatus AddParameterDataSource(vtkPlusDataSource* aSource);
+  PlusStatus RemoveParameterDataSource(const std::string& sourceId);
+  PlusStatus GetParameterDataSource(vtkPlusDataSource*& aSource, const std::string& sourceId);
+  PlusStatus RemoveParameterDataSources();
+  PlusStatus GetParameters(std::map<std::string, std::string>& parameters);
+
   bool GetTrackingDataAvailable();
   bool GetVideoDataAvailable();
   bool GetFieldDataAvailable();
@@ -174,7 +180,7 @@ protected:
   virtual int GetNumberOfFramesBetweenTimestamps(double aTimestampFrom, double aTimestampTo);
 
 protected:
-//  DataSourceContainer       ParameterDataSources; //Use FieldDataSources for now
+  DataSourceContainer       ParameterDataSources;
   DataSourceContainer       FieldDataSources;
   DataSourceContainer       Tools;
   vtkPlusDataSource*        VideoSource;

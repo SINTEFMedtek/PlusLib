@@ -354,3 +354,45 @@ PlusStatus vtkPlusIgtlMessageFactory::PackMessages(const PlusIgtlClientInfo& cli
   return (numberOfErrors == 0 ? PLUS_SUCCESS : PLUS_FAIL);
 }
 
+//----------------------------------------------------------------------------
+//PlusStatus vtkPlusIgtlMessageFactory::PackMessages(const PlusIgtlClientInfo& clientInfo, std::vector<igtl::MessageBase::Pointer>& igtlMessages, vtkPlusDataSource& aSource)
+PlusStatus vtkPlusIgtlMessageFactory::PackMessages(const PlusIgtlClientInfo& clientInfo, std::vector<igtl::MessageBase::Pointer>& igtlMessages, std::map<std::string, std::string>& parameters, double timestamp)
+{
+	std::string messageType = "STRING";
+	igtl::MessageBase::Pointer igtlMessage;
+	try
+	{
+		igtlMessage = this->IgtlFactory->CreateSendMessage(messageType, clientInfo.ClientHeaderVersion);
+	}
+	catch (std::invalid_argument* e)
+	{
+		LOG_ERROR("Unable to create message: " << e);
+		return PLUS_FAIL;
+	}
+
+	if (igtlMessage.IsNull())
+	{
+		LOG_ERROR("Failed to pack IGT messages - unable to create instance from message type: " << messageType);
+		return PLUS_FAIL;
+	}
+	
+	LOG_INFO("PackMessages2. String message. parameters size: " << parameters.size());
+	std::map<std::string, std::string>::iterator iter;
+	for (iter = parameters.begin(); iter != parameters.end(); ++iter)
+	{
+		const char* stringName = iter->first.c_str();
+		const char* stringValue = iter->second.c_str();
+
+		if(iter->first.compare("Processed") == 0 || iter->second.empty())
+		{
+			// no value is available, do not send anything
+			continue;
+		}
+		LOG_INFO("Going to send property: " << iter->first << " value: " << iter->second);
+		igtl::StringMessage::Pointer stringMessage = dynamic_cast<igtl::StringMessage*>(igtlMessage->Clone().GetPointer());
+		//stringMessage->SetDeviceName("Test");//TODO: Set device name/id?
+		vtkPlusIgtlMessageCommon::PackStringMessage(stringMessage, stringName, stringValue, timestamp);
+		igtlMessages.push_back(stringMessage.GetPointer());
+	}
+	return PLUS_SUCCESS;
+}

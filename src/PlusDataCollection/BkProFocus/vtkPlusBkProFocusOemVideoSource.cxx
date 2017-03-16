@@ -315,9 +315,40 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::InternalStopRecording()
   return PLUS_SUCCESS;
 }
 
+
+//----------------------------------------------------------------------------
+PlusStatus vtkPlusBkProFocusOemVideoSource::AddParameterReplies()
+{
+	vtkPlusDataSource* parameterSource(NULL);
+	if (this->Internal->Channel->GetParameterDataSource(parameterSource, "GetParameters") == PLUS_SUCCESS)
+	{
+		std::map<std::string, std::string> parameters;
+		if (this->ProcessParameterValues(parameters) == PLUS_SUCCESS)
+		{
+			LOG_DEBUG("Add parameter replies to parameter data source");
+			//this->FrameNumber++;//Need to add frame number?
+			if (parameterSource->AddItem(parameters, this->FrameNumber) != PLUS_SUCCESS)
+			{
+				LOG_ERROR("Error adding item " << parameterSource->GetSourceId() << " on channel " << this->Internal->Channel->GetChannelId());
+				return PLUS_FAIL;
+			}
+		}
+	}
+	return PLUS_SUCCESS;
+}
+
+
 //----------------------------------------------------------------------------
 PlusStatus vtkPlusBkProFocusOemVideoSource::InternalUpdate()
 {
+	//Always send parameter replies
+	if (this->AddParameterReplies() != PLUS_SUCCESS)
+	{
+		LOG_ERROR("Error adding parameter replies on channel " << this->Internal->Channel->GetChannelId());
+		return PLUS_FAIL;
+	}
+	
+
   if (!this->Recording)
   {
     // drop the frame, we are not recording data now
@@ -461,38 +492,16 @@ fclose(f);
 
   }
 
-  PlusTrackedFrame::FieldMapType customFields;
-  if (this->GenerateCustomFields(customFields) != PLUS_SUCCESS)
-  {
-	  LOG_ERROR("Error generating custom BK fields");
-	  return PLUS_FAIL;
-  }
-
-  //if (aSource->AddItem(this->Internal->DecodedImageFrame, aSource->GetInputImageOrientation(), US_IMG_BRIGHTNESS, this->FrameNumber) != PLUS_SUCCESS)
-  if (aSource->AddItem(this->Internal->DecodedImageFrame, aSource->GetInputImageOrientation(), US_IMG_BRIGHTNESS, this->FrameNumber, UNDEFINED_TIMESTAMP, UNDEFINED_TIMESTAMP, &customFields) != PLUS_SUCCESS)
+  if (aSource->AddItem(this->Internal->DecodedImageFrame, aSource->GetInputImageOrientation(), US_IMG_BRIGHTNESS, this->FrameNumber) != PLUS_SUCCESS)
+  //if (aSource->AddItem(this->Internal->DecodedImageFrame, aSource->GetInputImageOrientation(), US_IMG_BRIGHTNESS, this->FrameNumber, UNDEFINED_TIMESTAMP, UNDEFINED_TIMESTAMP, &customFields) != PLUS_SUCCESS)
   {
     LOG_ERROR("Error adding item to video source " << aSource->GetSourceId() << " on channel " << this->Internal->Channel->GetChannelId());
     return PLUS_FAIL;
   }
   this->Modified();
-
+  
   return PLUS_SUCCESS;
 }
-
-PlusStatus vtkPlusBkProFocusOemVideoSource::GenerateCustomFields(PlusTrackedFrame::FieldMapType &customFields)
-{
-/*	double StartLineX_m, StartLineY_m, StartLineAngle_rad, StartDepth_m, StopLineX_m, StopLineY_m, StopLineAngle_rad, StopDepth_m;
-	int pixelLeft_pix, pixelTop_pix, pixelRight_pix, pixelBottom_pix;
-	double tissueLeft_m, tissueTop_m, tissueRight_m, tissueBottom_m;
-*/
-  //customFields[name] = value;
-  int value = 10;
-  //customFields["testParameter"] = "10";
-  customFields["testParameter"] = std::to_string(value);
-
-  return PLUS_SUCCESS;
-}
-
 
 //-----------------------------------------------------------------------------
 // QUERY:US_WIN_SIZE;
@@ -906,40 +915,24 @@ void vtkPlusBkProFocusOemVideoSource::GetValidParameterNames(std::vector<std::st
 }
 
 //----------------------------------------------------------------------------
-PlusStatus vtkPlusBkProFocusOemVideoSource::GenerateParameterAnswers(const std::vector<std::string> parameterNames, std::map<std::string, std::string>& parameterReplies)
+PlusStatus vtkPlusBkProFocusOemVideoSource::TriggerParameterAnswers(const std::vector<std::string> parameterNames)
 {
-	//TODO: Create reply messages based on US parameters
-	LOG_DEBUG("vtkPlusBkProFocusOemVideoSource::GenerateParameterAnswers: Not fully implemented yet!");
+	LOG_DEBUG("vtkPlusBkProFocusOemVideoSource::TriggerParameterAnswers");
 
-	//TODO: Use either the existing variable FieldDataSources or create a new one: ParameterDataSources
-	//vtkSmartPointer<vtkPlusDataSource> aSource = vtkSmartPointer<vtkPlusDataSource>::New();
+	//Use either the existing variable FieldDataSources or create a new one: ParameterDataSources?
+	vtkSmartPointer<vtkPlusDataSource> aSource = vtkSmartPointer<vtkPlusDataSource>::New();
+	aSource->SetId("GetParameters");
 
-	//this->AddFieldDataSource(aSource);
-
-	if (this->UpdateScannerParameters() != PLUS_SUCCESS)
+	for (unsigned i = 0; i < parameterNames.size(); ++i)
 	{
-		//Disable for testing
-#ifndef OFFLINE_TESTING
-		return PLUS_FAIL;
-#endif
+		aSource->SetCustomProperty(parameterNames[i], "update");
 	}
+	aSource->SetCustomProperty("Processed", "");
 
-	std::vector<std::string>::const_iterator iter;
-	for (iter = parameterNames.begin(); iter != parameterNames.end(); ++iter)
-	{
-		if ((*iter).compare("Depth") == 0)
-		{
-			parameterReplies[*iter] = this->CalculateDepth();
-		}
-		else if ((*iter).compare("Depth") == 0)
-		{
-			parameterReplies[*iter] = this->CalculateGain();
-		}
-		else
-		{
-			parameterReplies[*iter] = "Unknown parameter";
-		}
-	}
+	this->Internal->Channel->RemoveParameterDataSource("GetParameters");//TODO: Remove either here or in vtkPlusChannel::GetParameters?
+	//this->Internal->Channel->AddFieldDataSource(aSource);
+	this->Internal->Channel->AddParameterDataSource(aSource);
+
 	return PLUS_SUCCESS;
 }
 
@@ -976,5 +969,52 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::UpdateScannerParameters()
 	{
 		return PLUS_FAIL;
 	}
+	return PLUS_SUCCESS;
+}
+
+PlusStatus vtkPlusBkProFocusOemVideoSource::ProcessParameterValues(std::map<std::string, std::string>& parameters)
+{
+	LOG_DEBUG("vtkPlusBkProFocusOemVideoSource::ProcessParameterValues()");
+	//TODO: Implement all parameter answers
+
+	vtkPlusDataSource* aSource(NULL);
+	if (this->Internal->Channel->GetParameterDataSource(aSource, "GetParameters") == PLUS_SUCCESS)
+	{
+		LOG_DEBUG("Got ParameterDataSource GetParameters");
+		//Only process get parameter once
+		if (!aSource->GetCustomProperty("Processed").empty())
+		{
+			return PLUS_FAIL;
+		}
+		LOG_DEBUG("Got new GetParameters request");
+
+		if (this->UpdateScannerParameters() != PLUS_SUCCESS)
+		{
+			//Disable for testing
+#ifndef OFFLINE_TESTING
+			return PLUS_FAIL;
+#endif
+		}
+		
+		if (!aSource->GetCustomProperty("Depth").empty())
+		{
+			LOG_DEBUG("Depth: " << this->CalculateDepth());
+			aSource->SetCustomProperty("Depth", this->CalculateDepth());
+			parameters["Depth"] = this->CalculateDepth();
+		}
+		if (!aSource->GetCustomProperty("Gain").empty())
+		{
+			LOG_DEBUG("Gain: " << this->CalculateGain());
+			aSource->SetCustomProperty("Gain", this->CalculateGain());
+			parameters["Gain"] = this->CalculateGain();
+		}
+
+		aSource->SetCustomProperty("Processed", "Read");
+	}
+	else
+	{
+		return PLUS_FAIL;
+	}
+
 	return PLUS_SUCCESS;
 }

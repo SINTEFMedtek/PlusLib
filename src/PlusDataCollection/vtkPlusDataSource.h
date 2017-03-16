@@ -298,6 +298,8 @@ public:
   */
   void SetCustomProperty(const std::string& propertyName, const std::string& propertyValue);
 
+  void GetCustomProperties(std::map<std::string, std::string>& parameters);
+
   /*! Make this tracker into a copy of another tracker. You should lock both of the tracker buffers before doing this. */
   void DeepCopy(const vtkPlusDataSource& source);
 

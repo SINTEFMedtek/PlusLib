@@ -552,6 +552,16 @@ void vtkPlusDataSource::SetCustomProperty(const std::string& propertyName, const
   this->CustomProperties[propertyName] = propertyValue;
 }
 
+
+void vtkPlusDataSource::GetCustomProperties(std::map<std::string, std::string>& parameters)
+{
+	std::map<std::string, std::string>::iterator iter;
+	for (iter = this->CustomProperties.begin(); iter != this->CustomProperties.end(); ++iter)
+	{
+		parameters[iter->first] = iter->second;
+	}
+}
+
 //-----------------------------------------------------------------------------
 PlusStatus vtkPlusDataSource::AddItem(vtkImageData* frame, US_IMAGE_ORIENTATION usImageOrientation, US_IMAGE_TYPE imageType, long frameNumber, double unfilteredTimestamp/*=UNDEFINED_TIMESTAMP*/, double filteredTimestamp/*=UNDEFINED_TIMESTAMP*/, const PlusTrackedFrame::FieldMapType* customFields /*= NULL*/)
 {

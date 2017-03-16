@@ -62,8 +62,7 @@ public:
 
 
   void GetValidParameterNames(std::vector<std::string>& parameterNames);
-  //void GenerateParameterAnswers(const std::vector<std::string> parameterNames);
-  PlusStatus GenerateParameterAnswers(const std::vector<std::string> parameterNames, std::map<std::string, std::string>& parameterReplies);
+  PlusStatus TriggerParameterAnswers(const std::vector<std::string> parameterNames);
 
 protected:
 	
@@ -96,10 +95,7 @@ protected:
 
   /*! The internal function which actually does the grab.  */
   PlusStatus InternalUpdate();
-
-  /*! Generate custom frame fields base on parameters read from the BK scanner. */
-  PlusStatus GenerateCustomFields(PlusTrackedFrame::FieldMapType &customFields);
-
+  
   /*! The internal function which ...  */
   PlusStatus QueryImageSize();
   PlusStatus QueryGeometryScanarea();
@@ -120,6 +116,9 @@ protected:
 
   std::string CalculateDepth();
   std::string CalculateGain();
+
+  PlusStatus ProcessParameterValues(std::map<std::string, std::string>& parameters);
+  PlusStatus AddParameterReplies();
 
   /*! BK ini file storing the connection and acquisition settings */
   char* IniFileName;

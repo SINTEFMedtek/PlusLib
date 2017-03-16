@@ -9,8 +9,8 @@ void vtkPlusUsCommandDevice::GetValidParameterNames(std::vector<std::string>& pa
 }
 
 
-PlusStatus vtkPlusUsCommandDevice::GenerateParameterAnswers(const std::vector<std::string> parameterNames, std::map<std::string, std::string>& parameterReplies)
+PlusStatus vtkPlusUsCommandDevice::TriggerParameterAnswers(const std::vector<std::string> parameterNamess)
 {
-	LOG_DEBUG("vtkPlusUsCommandDevice::GenerateParameterAnswers. Need implementation in subclass");
+	LOG_DEBUG("vtkPlusUsCommandDevice::TriggerParameterAnswers. Need implementation in subclass");
 	return PLUS_FAIL;
 }

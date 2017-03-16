@@ -10,12 +10,9 @@ static const char CMD_NAME[] = "Get";
 
 //----------------------------------------------------------------------------
 vtkPlusGetCommand::vtkPlusGetCommand()
-	: Depth(0)
+	: DeviceId(NULL)
+	, Depth(0)
 	, Gain(0)
-//	: DeviceId(NULL)
-//	, Text(NULL)
-//	, ResponseText(NULL)
-//	, ResponseExpected(true)
 {
 	// It handles only one command, set its name by default
 	this->SetName(CMD_NAME);
@@ -54,7 +51,6 @@ PlusStatus vtkPlusGetCommand::ReadConfiguration(vtkXMLDataElement* aConfig)
 		return PLUS_FAIL;
 	}
 	XML_READ_STRING_ATTRIBUTE_OPTIONAL(DeviceId, aConfig);
-//	XML_READ_STRING_ATTRIBUTE_OPTIONAL(Text, aConfig);
 
 	//Used for reading values from message into attribute, use in SetCommand
 	//XML_READ_SCALAR_ATTRIBUTE_OPTIONAL(double, Depth, aConfig);
@@ -95,19 +91,10 @@ PlusStatus vtkPlusGetCommand::CreateParameterReplies(vtkPlusUsCommandDevice* usC
 	}
 	//ParameterReplies += "</Command>\n";
 
-	std::map<std::string, std::string> parameterValues;
-	if (usCommandDevice->GenerateParameterAnswers(validParameters, parameterValues) != PLUS_SUCCESS)
-		return PLUS_FAIL;
-	//TODO: Generate message with value replies
-	
-	ParameterValueReplies.clear();
-	ParameterValueReplies += "\n";
-	//std::vector<std::string>::iterator iter;
-	for (iter = validParameters.begin(); iter != validParameters.end(); ++iter)
+	if (usCommandDevice->TriggerParameterAnswers(validParameters) != PLUS_SUCCESS)
 	{
-		ParameterValueReplies += "<Parameter Name=\"" + *iter + "\" Value=\"" + parameterValues[*iter] + "\"/>\n";
+		return PLUS_FAIL;
 	}
-
 
 	return PLUS_SUCCESS;
 }
@@ -144,9 +131,7 @@ PlusStatus vtkPlusGetCommand::CreateParameterList(vtkXMLDataElement* aConfig)
 PlusStatus vtkPlusGetCommand::Execute()
 {
 	LOG_DEBUG("vtkPlusGetCommand::Execute: " << (!this->Name.empty() ? this->Name : "(undefined)")
-		<< ", device: " << (this->DeviceName.empty() ? "(undefined)" : this->DeviceName)
-//		<< ", device: " << (this->DeviceId.empty() ? "(undefined)" : this->DeviceId));
-//		<< ", text: " << (this->Text.empty() ? "(undefined)" : this->Text));
+		<< ", Device: " << (this->DeviceId.empty() ? "(undefined)" : this->DeviceId)
 		<< ", Depth: " <<  this->Depth
 		<< ", Gain: " <<  this->Gain);
 
@@ -158,16 +143,16 @@ PlusStatus vtkPlusGetCommand::Execute()
 	}
 
 	// Get device pointer
-	if (this->DeviceName.empty())
+	if (this->DeviceId.empty())
 	{
-		this->QueueCommandResponse(PLUS_FAIL, "Command failed. See error message.", "No DeviceName specified.");
+		this->QueueCommandResponse(PLUS_FAIL, "Command failed. See error message.", "No DeviceId specified.");
 		return PLUS_FAIL;
 	}
 	vtkPlusDevice* device = NULL;
-	if (dataCollector->GetDevice(device, this->DeviceName) != PLUS_SUCCESS)
+	if (dataCollector->GetDevice(device, this->DeviceId) != PLUS_SUCCESS)
 	{
 		this->QueueCommandResponse(PLUS_FAIL, "Command failed. See error message.", std::string("Device ")
-			+ (this->DeviceName.empty() ? "(undefined)" : this->DeviceName) + std::string(" is not found."));
+			+ (this->DeviceId.empty() ? "(undefined)" : this->DeviceId) + std::string(" is not found."));
 		return PLUS_FAIL;
 	}
 
@@ -175,7 +160,7 @@ PlusStatus vtkPlusGetCommand::Execute()
 	if (!usCommandDevice)
 	{
 		this->QueueCommandResponse(PLUS_FAIL, "Command failed. See error message.", std::string("Device ")
-			+ (this->DeviceName.empty() ? "(undefined)" : this->DeviceName) + std::string(" is not a vtkPlusUsCommandDevice."));
+			+ (this->DeviceId.empty() ? "(undefined)" : this->DeviceId) + std::string(" is not a vtkPlusUsCommandDevice."));
 		return PLUS_FAIL;
 	}
 
@@ -184,7 +169,6 @@ PlusStatus vtkPlusGetCommand::Execute()
 		return PLUS_FAIL;
 	}
 	this->QueueCommandResponse(PLUS_SUCCESS, ParameterReplies);
-	this->QueueCommandResponse(PLUS_SUCCESS, ParameterValueReplies);//TODO: Send as string message and not a RTS_COMMAND
 	return PLUS_SUCCESS;
 }
 
