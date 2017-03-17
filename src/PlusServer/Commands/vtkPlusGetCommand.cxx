@@ -10,8 +10,7 @@ static const char CMD_NAME[] = "Get";
 
 //----------------------------------------------------------------------------
 vtkPlusGetCommand::vtkPlusGetCommand()
-	: DeviceId(NULL)
-	, Depth(0)
+	: Depth(0)
 	, Gain(0)
 {
 	// It handles only one command, set its name by default
