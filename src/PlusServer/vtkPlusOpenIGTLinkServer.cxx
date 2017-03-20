@@ -386,7 +386,7 @@ PlusStatus vtkPlusOpenIGTLinkServer::SendParameterValues(vtkPlusOpenIGTLinkServe
 	if (self.BroadcastChannel != NULL)
 	{
 		std::map<std::string, std::string> parameters;
-		if (self.BroadcastChannel->GetParameters(parameters) == PLUS_SUCCESS)
+		if (self.BroadcastChannel->GetParameters(parameters) == PLUS_SUCCESS)//GetAndDeleteParameters
 		{
 			double timestamp = vtkPlusAccurateTimer::GetUniversalTime();//test
 

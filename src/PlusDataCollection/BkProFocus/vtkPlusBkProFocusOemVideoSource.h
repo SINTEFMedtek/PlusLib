@@ -117,7 +117,7 @@ protected:
   std::string CalculateDepth();
   std::string CalculateGain();
 
-  PlusStatus ProcessParameterValues(std::map<std::string, std::string>& parameters);
+  PlusStatus ProcessParameterValues(/*std::map<std::string, std::string>& parameters*/);
   PlusStatus AddParameterReplies();
 
   /*! BK ini file storing the connection and acquisition settings */

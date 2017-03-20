@@ -322,16 +322,16 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::AddParameterReplies()
 	vtkPlusDataSource* parameterSource(NULL);
 	if (this->Internal->Channel->GetParameterDataSource(parameterSource, "GetParameters") == PLUS_SUCCESS)
 	{
-		std::map<std::string, std::string> parameters;
-		if (this->ProcessParameterValues(parameters) == PLUS_SUCCESS)
+		//std::map<std::string, std::string> parameters;
+		if (this->ProcessParameterValues(/*parameters*/) == PLUS_SUCCESS)
 		{
 			LOG_DEBUG("Add parameter replies to parameter data source");
 			//this->FrameNumber++;//Need to add frame number?
-			if (parameterSource->AddItem(parameters, this->FrameNumber) != PLUS_SUCCESS)
+			/*if (parameterSource->AddItem(parameters, this->FrameNumber) != PLUS_SUCCESS)
 			{
 				LOG_ERROR("Error adding item " << parameterSource->GetSourceId() << " on channel " << this->Internal->Channel->GetChannelId());
 				return PLUS_FAIL;
-			}
+			}*/
 		}
 	}
 	return PLUS_SUCCESS;
@@ -342,11 +342,12 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::AddParameterReplies()
 PlusStatus vtkPlusBkProFocusOemVideoSource::InternalUpdate()
 {
 	//Always send parameter replies
-	if (this->AddParameterReplies() != PLUS_SUCCESS)
+	this->ProcessParameterValues();
+	/*if (this->AddParameterReplies() != PLUS_SUCCESS)
 	{
 		LOG_ERROR("Error adding parameter replies on channel " << this->Internal->Channel->GetChannelId());
 		return PLUS_FAIL;
-	}
+	}*/
 	
 
   if (!this->Recording)
@@ -920,18 +921,31 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::TriggerParameterAnswers(const std::v
 	LOG_DEBUG("vtkPlusBkProFocusOemVideoSource::TriggerParameterAnswers");
 
 	//Use either the existing variable FieldDataSources or create a new one: ParameterDataSources?
-	vtkSmartPointer<vtkPlusDataSource> aSource = vtkSmartPointer<vtkPlusDataSource>::New();
-	aSource->SetId("GetParameters");
 
+	bool newParameterDataSource = false;
+	vtkSmartPointer<vtkPlusDataSource> parameterDataSource;
+	vtkPlusDataSource* aSource(NULL);
+	if (this->Internal->Channel->GetParameterDataSource(aSource, "GetParameters") != PLUS_SUCCESS)
+	{
+		parameterDataSource = vtkSmartPointer<vtkPlusDataSource>::New();
+		parameterDataSource->SetId("GetParameters");
+		newParameterDataSource = true;
+	}
+	else
+	{
+		parameterDataSource = aSource;
+	}
+	
 	for (unsigned i = 0; i < parameterNames.size(); ++i)
 	{
-		aSource->SetCustomProperty(parameterNames[i], "update");
+		parameterDataSource->SetCustomProperty(parameterNames[i], "update");
 	}
-	aSource->SetCustomProperty("Processed", "");
+	parameterDataSource->SetCustomProperty("Processed", "");
 
-	this->Internal->Channel->RemoveParameterDataSource("GetParameters");//TODO: Remove either here or in vtkPlusChannel::GetParameters?
-	//this->Internal->Channel->AddFieldDataSource(aSource);
-	this->Internal->Channel->AddParameterDataSource(aSource);
+	if (newParameterDataSource)
+	{
+		this->Internal->Channel->AddParameterDataSource(parameterDataSource);
+	}
 
 	return PLUS_SUCCESS;
 }
@@ -972,7 +986,7 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::UpdateScannerParameters()
 	return PLUS_SUCCESS;
 }
 
-PlusStatus vtkPlusBkProFocusOemVideoSource::ProcessParameterValues(std::map<std::string, std::string>& parameters)
+PlusStatus vtkPlusBkProFocusOemVideoSource::ProcessParameterValues(/*std::map<std::string, std::string>& parameters*/)
 {
 	LOG_DEBUG("vtkPlusBkProFocusOemVideoSource::ProcessParameterValues()");
 	//TODO: Implement all parameter answers
@@ -1000,14 +1014,18 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::ProcessParameterValues(std::map<std:
 		{
 			LOG_DEBUG("Depth: " << this->CalculateDepth());
 			aSource->SetCustomProperty("Depth", this->CalculateDepth());
-			parameters["Depth"] = this->CalculateDepth();
+			//parameters["Depth"] = this->CalculateDepth();
 		}
 		if (!aSource->GetCustomProperty("Gain").empty())
 		{
 			LOG_DEBUG("Gain: " << this->CalculateGain());
 			aSource->SetCustomProperty("Gain", this->CalculateGain());
-			parameters["Gain"] = this->CalculateGain();
+			//parameters["Gain"] = this->CalculateGain();
 		}
+
+		LOG_DEBUG("Add DeviceId: " << this->GetDeviceId());
+		//parameters["DeviceId"] = this->GetDeviceId();
+		aSource->SetCustomProperty("DeviceId", this->GetDeviceId());
 
 		aSource->SetCustomProperty("Processed", "Read");
 	}
