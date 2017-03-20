@@ -23,13 +23,7 @@ public:
 	/*! Id of the device that the text will be sent to */
 	virtual std::string GetDeviceId() const;
 	virtual void SetDeviceId(const std::string& deviceId);
-
-	virtual double GetDepth() const;
-	virtual void SetDepth(const double& depth);
-	virtual double GetGain() const;
-	virtual void SetGain(const double& gain);
-
-
+	
 	/*! Read command parameters from XML */
 	virtual PlusStatus ReadConfiguration(vtkXMLDataElement* aConfig);
 
@@ -42,7 +36,6 @@ protected:
 
 private:
 	std::string DeviceId;
-	double Depth, Gain;
 	std::string ParameterReplies;
 	std::vector<std::string> ParameterList;
 

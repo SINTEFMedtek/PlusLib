@@ -10,8 +10,6 @@ static const char CMD_NAME[] = "Get";
 
 //----------------------------------------------------------------------------
 vtkPlusGetCommand::vtkPlusGetCommand()
-	: Depth(0)
-	, Gain(0)
 {
 	// It handles only one command, set its name by default
 	this->SetName(CMD_NAME);
@@ -130,9 +128,7 @@ PlusStatus vtkPlusGetCommand::CreateParameterList(vtkXMLDataElement* aConfig)
 PlusStatus vtkPlusGetCommand::Execute()
 {
 	LOG_DEBUG("vtkPlusGetCommand::Execute: " << (!this->Name.empty() ? this->Name : "(undefined)")
-		<< ", Device: " << (this->DeviceId.empty() ? "(undefined)" : this->DeviceId)
-		<< ", Depth: " <<  this->Depth
-		<< ", Gain: " <<  this->Gain);
+		<< ", Device: " << (this->DeviceId.empty() ? "(undefined)" : this->DeviceId));
 
 	vtkPlusDataCollector* dataCollector = GetDataCollector();
 	if (dataCollector == NULL)
@@ -182,24 +178,4 @@ std::string vtkPlusGetCommand::GetDeviceId() const
 void vtkPlusGetCommand::SetDeviceId(const std::string& deviceId)
 {
 	this->DeviceId = deviceId;
-}
-
-double vtkPlusGetCommand::GetDepth() const
-{
-	return this->Depth;
-}
-
-void vtkPlusGetCommand::SetDepth(const double& depth)
-{
-	this->Depth = depth;
-}
-
-double vtkPlusGetCommand::GetGain() const
-{
-	return this->Gain;
-}
-
-void vtkPlusGetCommand::SetGain(const double& gain)
-{
-	this->Gain = gain;
 }
