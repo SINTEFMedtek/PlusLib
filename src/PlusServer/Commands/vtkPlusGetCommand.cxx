@@ -2,7 +2,7 @@
 #include "vtkPlusGetCommand.h"
 
 #include "vtkPlusDataCollector.h"
-#include "vtkPlusUsCommandDevice.h"
+#include "vtkPlusUsDevice.h"
 
 vtkStandardNewMacro(vtkPlusGetCommand);
 
@@ -60,7 +60,7 @@ PlusStatus vtkPlusGetCommand::ReadConfiguration(vtkXMLDataElement* aConfig)
 }
 
 
-PlusStatus vtkPlusGetCommand::CreateParameterReplies(vtkPlusUsCommandDevice* usCommandDevice)
+PlusStatus vtkPlusGetCommand::CreateParameterReplies(vtkPlusUsDevice* usCommandDevice)
 {
 	std::vector<std::string> validParametersFromDevice;
 	usCommandDevice->GetValidParameterNames(validParametersFromDevice);
@@ -151,11 +151,11 @@ PlusStatus vtkPlusGetCommand::Execute()
 		return PLUS_FAIL;
 	}
 
-	vtkPlusUsCommandDevice* usCommandDevice = dynamic_cast<vtkPlusUsCommandDevice*>(device);
+	vtkPlusUsDevice* usCommandDevice = dynamic_cast<vtkPlusUsDevice*>(device);
 	if (!usCommandDevice)
 	{
 		this->QueueCommandResponse(PLUS_FAIL, "Command failed. See error message.", std::string("Device ")
-			+ (this->DeviceId.empty() ? "(undefined)" : this->DeviceId) + std::string(" is not a vtkPlusUsCommandDevice."));
+			+ (this->DeviceId.empty() ? "(undefined)" : this->DeviceId) + std::string(" is not a vtkPlusUsDevice."));
 		return PLUS_FAIL;
 	}
 

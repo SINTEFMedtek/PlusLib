@@ -102,7 +102,6 @@ SET(Common_SRCS
   vtkFcsvWriter.cxx
   vtkPlusBuffer.cxx 
   vtkPlusUsImagingParameters.cxx
-  vtkPlusUsCommandDevice.cxx
   )
 
 SET(Virtual_SRCS
@@ -144,7 +143,6 @@ IF (MSVC OR ${CMAKE_GENERATOR} MATCHES "Xcode")
     vtkFcsvWriter.h
     vtkPlusBuffer.h 
     vtkPlusUsImagingParameters.h
-    vtkPlusUsCommandDevice.h
     )
   SET(Virtual_HDRS
     VirtualDevices/vtkPlusVirtualMixer.h

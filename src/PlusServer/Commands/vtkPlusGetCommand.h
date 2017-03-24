@@ -4,7 +4,7 @@
 #include "vtkPlusServerExport.h"
 
 #include "vtkPlusCommand.h"
-class vtkPlusUsCommandDevice;
+class vtkPlusUsDevice;
 
 class vtkPlusServerExport vtkPlusGetCommand : public vtkPlusCommand
 {
@@ -43,7 +43,7 @@ private:
 	void operator=(const vtkPlusGetCommand&);
 
 	PlusStatus CreateParameterList(vtkXMLDataElement* aConfig);
-	PlusStatus CreateParameterReplies(vtkPlusUsCommandDevice* usCommandDevice);
+	PlusStatus CreateParameterReplies(vtkPlusUsDevice* usCommandDevice);
 };
 
 #endif

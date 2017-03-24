@@ -11,7 +11,7 @@
 
 #include "vtkPlusDataCollectionExport.h"
 
-#include "vtkPlusUsCommandDevice.h"
+#include "vtkPlusUsDevice.h"
 
 /*!
   \class vtkPlusBkProFocusOemVideoSource 
@@ -22,11 +22,11 @@
 
   \ingroup PlusLibDataCollection
 */
-class vtkPlusDataCollectionExport vtkPlusBkProFocusOemVideoSource : public vtkPlusUsCommandDevice
+class vtkPlusDataCollectionExport vtkPlusBkProFocusOemVideoSource : public vtkPlusUsDevice
 {
 public:
   static vtkPlusBkProFocusOemVideoSource *New();
-  vtkTypeMacro(vtkPlusBkProFocusOemVideoSource, vtkPlusUsCommandDevice);
+  vtkTypeMacro(vtkPlusBkProFocusOemVideoSource, vtkPlusUsDevice);
   virtual void PrintSelf(ostream& os, vtkIndent indent) VTK_OVERRIDE;
 
   virtual bool IsTracker() const { return false; }
