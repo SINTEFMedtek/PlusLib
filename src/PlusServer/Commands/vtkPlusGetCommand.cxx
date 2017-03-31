@@ -60,10 +60,10 @@ PlusStatus vtkPlusGetCommand::ReadConfiguration(vtkXMLDataElement* aConfig)
 }
 
 
-PlusStatus vtkPlusGetCommand::CreateParameterReplies(vtkPlusUsDevice* usCommandDevice)
+PlusStatus vtkPlusGetCommand::CreateParameterReplies(vtkPlusUsDevice* usDevice)
 {
 	std::vector<std::string> validParametersFromDevice;
-	usCommandDevice->GetValidParameterNames(validParametersFromDevice);
+	usDevice->GetValidParameterNames(validParametersFromDevice);
 	
 	std::vector<std::string> validParameters;
 
@@ -88,7 +88,7 @@ PlusStatus vtkPlusGetCommand::CreateParameterReplies(vtkPlusUsDevice* usCommandD
 	}
 	//ParameterReplies += "</Command>\n";
 
-	if (usCommandDevice->TriggerParameterAnswers(validParameters) != PLUS_SUCCESS)
+	if (usDevice->TriggerParameterAnswers(validParameters) != PLUS_SUCCESS)
 	{
 		return PLUS_FAIL;
 	}
@@ -151,15 +151,15 @@ PlusStatus vtkPlusGetCommand::Execute()
 		return PLUS_FAIL;
 	}
 
-	vtkPlusUsDevice* usCommandDevice = dynamic_cast<vtkPlusUsDevice*>(device);
-	if (!usCommandDevice)
+	vtkPlusUsDevice* usDevice = dynamic_cast<vtkPlusUsDevice*>(device);
+	if (!usDevice)
 	{
 		this->QueueCommandResponse(PLUS_FAIL, "Command failed. See error message.", std::string("Device ")
 			+ (this->DeviceId.empty() ? "(undefined)" : this->DeviceId) + std::string(" is not a vtkPlusUsDevice."));
 		return PLUS_FAIL;
 	}
 
-	if (this->CreateParameterReplies(usCommandDevice) != PLUS_SUCCESS)
+	if (this->CreateParameterReplies(usDevice) != PLUS_SUCCESS)
 	{
 		return PLUS_FAIL;
 	}

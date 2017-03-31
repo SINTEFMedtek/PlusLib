@@ -43,7 +43,7 @@ private:
 	void operator=(const vtkPlusGetCommand&);
 
 	PlusStatus CreateParameterList(vtkXMLDataElement* aConfig);
-	PlusStatus CreateParameterReplies(vtkPlusUsDevice* usCommandDevice);
+	PlusStatus CreateParameterReplies(vtkPlusUsDevice* usDevice);
 };
 
 #endif
