@@ -40,8 +40,25 @@ static const char OFFLINE_TESTING_FILENAME[] = "c:\\dev\\bktest.png";
 
 #include "UseCaseParser.h"
 #include "UseCaseStructs.h"
+#include "vtkPlusUsImagingParameters.h"
 
 static const int TIMESTAMP_SIZE = 4;
+
+
+const char* vtkPlusBkProFocusOemVideoSource::KEY_DEPTH				= "Depth";
+const char* vtkPlusBkProFocusOemVideoSource::KEY_GAIN				= "Gain";
+
+const char* vtkPlusBkProFocusOemVideoSource::KEY_START_DEPTH		= "StartDepth";
+const char* vtkPlusBkProFocusOemVideoSource::KEY_STOP_DEPTH			= "StopDepth";
+const char* vtkPlusBkProFocusOemVideoSource::KEY_START_LINE_X		= "StartLineX";
+const char* vtkPlusBkProFocusOemVideoSource::KEY_START_LINE_Y		= "StartLineY";
+const char* vtkPlusBkProFocusOemVideoSource::KEY_STOP_LINE_X		= "StopLineX";
+const char* vtkPlusBkProFocusOemVideoSource::KEY_STOP_LINE_Y		= "StopLineY";
+const char* vtkPlusBkProFocusOemVideoSource::KEY_START_LINE_ANGLE	= "StartLineAngle";
+const char* vtkPlusBkProFocusOemVideoSource::KEY_STOP_LINE_ANGLE	= "StopLineAngle";
+
+//const char* vtkPlusBkProFocusOemVideoSource::KEY_WIDTH			= "Width";
+const char* vtkPlusBkProFocusOemVideoSource::KEY_PROBE_TYPE			= "ProbeType";
 
 vtkStandardNewMacro(vtkPlusBkProFocusOemVideoSource);
 
@@ -390,6 +407,19 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::InternalUpdate()
     }
     LOG_TRACE("Number of bytes read: " << numBytesReceived);
 
+	//TODO: Read other subscribed messages, and not only 
+	//DATA:CAPTURE_IMAGE#...
+	//DATA:GRAB_FRAME#...
+	
+	//Possibly also receive all messages, as a subscribe message may arrive before reply to another message? 
+	
+	//Messages, may be either DATA for single or SDATA for subscribed message
+	//DATA:B_GAIN
+	//DATA:B_GEOMETRY_TISSUE
+	//DATA:B_GEOMETRY_PIXEL
+	//DATA:B_GEOMETRY_SCANAREA
+	//DATA:US_WIN_SIZE
+	
     // First detect the #
     for (numBytesProcessed = 0; this->Internal->OemClientReadBuffer[numBytesProcessed] != '#' && numBytesProcessed < numBytesReceived; numBytesProcessed++);
     numBytesProcessed++;
@@ -604,6 +634,28 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::QueryGain()
 
 	return retval;
 }
+
+//-----------------------------------------------------------------------------
+// CONFIG:DATA:SUBSCRIBE;
+
+//Receive messages example:
+// SDATA:B_GAIN:A
+/*PlusStatus vtkPlusBkProFocusOemVideoSource::Subscribe()
+{
+	std::string query = "CONFIG:DATA:SUBSCRIBE ";
+	query += "\"B_GEOMETRY_SCANAREA\"";
+	query += ",\"B_GAIN\"";
+	query += ";";
+	LOG_TRACE("Query from vtkPlusBkProFocusOemVideoSource: " << query);
+
+	size_t replyBytes = 100;
+	PlusStatus retval = SendReceiveQuery(query, replyBytes);
+
+	//sscanf(&(this->Internal->OemClientReadBuffer[0]), "SDATA:B_GAIN:A %d;", &gain_percent);
+	//LOG_TRACE("Ultrasound gain. gain_percent: " << gain_percent);
+
+	return retval;
+}*/
 
 //-----------------------------------------------------------------------------
 // QUERY:B_TRANS_IMAGE_CALIB; //Get only zeroes as return values
@@ -911,8 +963,19 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::DecodePngImage(unsigned char* pngBuf
 void vtkPlusBkProFocusOemVideoSource::GetValidParameterNames(std::vector<std::string>& parameterNames)
 {
 	parameterNames.clear();
-	parameterNames.push_back("Depth");
-	parameterNames.push_back("Gain");
+	parameterNames.push_back(KEY_DEPTH);
+	parameterNames.push_back(KEY_GAIN);
+
+	parameterNames.push_back(KEY_START_DEPTH);
+	parameterNames.push_back(KEY_STOP_DEPTH);
+	parameterNames.push_back(KEY_START_LINE_X);
+	parameterNames.push_back(KEY_START_LINE_Y);
+	parameterNames.push_back(KEY_STOP_LINE_X);
+	parameterNames.push_back(KEY_STOP_LINE_Y);
+	parameterNames.push_back(KEY_START_LINE_ANGLE);
+	parameterNames.push_back(KEY_STOP_LINE_ANGLE);
+	parameterNames.push_back(KEY_PROBE_TYPE);
+	//parameterNames.push_back(KEY_SECTOR_INFO);
 }
 
 //----------------------------------------------------------------------------
@@ -950,18 +1013,7 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::TriggerParameterAnswers(const std::v
 	return PLUS_SUCCESS;
 }
 
-std::string vtkPlusBkProFocusOemVideoSource::CalculateDepth()
-{
-	double depth_mm = (StopDepth_m - StartDepth_m) / 1000.0;
-	return PlusCommon::ToString(depth_mm);
-}
-
-std::string vtkPlusBkProFocusOemVideoSource::CalculateGain()
-{
-	return PlusCommon::ToString(gain_percent);
-}
-
-PlusStatus vtkPlusBkProFocusOemVideoSource::UpdateScannerParameters()
+PlusStatus vtkPlusBkProFocusOemVideoSource::RequestParametersFromScanner()
 {
 	if (this->QueryImageSize() != PLUS_SUCCESS)
 	{
@@ -983,6 +1035,35 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::UpdateScannerParameters()
 	{
 		return PLUS_FAIL;
 	}
+	
+	return PLUS_SUCCESS;
+}
+
+PlusStatus vtkPlusBkProFocusOemVideoSource::UpdateScannerParameters()
+{
+	if (this->RequestParametersFromScanner() != PLUS_SUCCESS)
+	{
+		//Disable for testing
+#ifndef OFFLINE_TESTING
+		return PLUS_FAIL;
+#endif
+	}
+
+	//this->CurrentImagingParameters->SetValue<std::string>(vtkPlusUsImagingParameters::KEY_DEPTH, this->CalculateDepth());
+	//int test = 1;
+	//this->CurrentImagingParameters->SetValue<int>("testparemeter", test);
+
+	
+	if (this->CurrentImagingParameters->SetDepthMm(this->CalculateDepthMm()) != PLUS_SUCCESS)
+	{
+		return PLUS_FAIL;
+	}
+	if (this->CurrentImagingParameters->SetGainPercent(this->CalculateGain()) != PLUS_SUCCESS)
+	{
+		return PLUS_FAIL;
+	}
+
+
 	return PLUS_SUCCESS;
 }
 
@@ -1010,17 +1091,61 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::ProcessParameterValues(/*std::map<st
 #endif
 		}
 		
-		if (!aSource->GetCustomProperty("Depth").empty())
+		if (!aSource->GetCustomProperty(KEY_DEPTH).empty())
 		{
-			LOG_DEBUG("Depth: " << this->CalculateDepth());
-			aSource->SetCustomProperty("Depth", this->CalculateDepth());
-			//parameters["Depth"] = this->CalculateDepth();
+			LOG_DEBUG("Depth: " << this->CalculateDepthMm());
+			aSource->SetCustomProperty(KEY_DEPTH, PlusCommon::ToString(this->CalculateDepthMm()));
+			//aSource->SetCustomProperty(KEY_DEPTH, PlusCommon::ToString(this->CurrentImagingParameters->GetDepthMm()));
+			//parameters[KEY_DEPTH] = this->CalculateDepth();
 		}
-		if (!aSource->GetCustomProperty("Gain").empty())
+		if (!aSource->GetCustomProperty(KEY_GAIN).empty())
 		{
 			LOG_DEBUG("Gain: " << this->CalculateGain());
-			aSource->SetCustomProperty("Gain", this->CalculateGain());
-			//parameters["Gain"] = this->CalculateGain();
+			aSource->SetCustomProperty(KEY_GAIN, PlusCommon::ToString(this->CalculateGain()));
+			//aSource->SetCustomProperty(KEY_GAIN, PlusCommon::ToString(this->CurrentImagingParameters->GetGainPercent()));
+			
+			//parameters[KEY_GAIN] = this->CalculateGain();
+		}
+
+		if (!aSource->GetCustomProperty(KEY_PROBE_TYPE).empty())
+		{
+			aSource->SetCustomProperty(KEY_PROBE_TYPE, PlusCommon::ToString(this->GetProbeType()));
+		}
+
+		if (!aSource->GetCustomProperty(KEY_START_DEPTH).empty())
+		{
+			aSource->SetCustomProperty(KEY_START_DEPTH, PlusCommon::ToString(this->GetStartDepth()));
+		}
+		if (!aSource->GetCustomProperty(KEY_STOP_DEPTH).empty())
+		{
+			aSource->SetCustomProperty(KEY_STOP_DEPTH, PlusCommon::ToString(this->GetStopDepth()));
+		}
+
+		if (!aSource->GetCustomProperty(KEY_START_LINE_X).empty())
+		{
+			aSource->SetCustomProperty(KEY_START_LINE_X, PlusCommon::ToString(this->GetStartLineX()));
+		}
+		if (!aSource->GetCustomProperty(KEY_START_LINE_Y).empty())
+		{
+			aSource->SetCustomProperty(KEY_START_LINE_Y, PlusCommon::ToString(this->GetStartLineY()));
+		}
+
+		if (!aSource->GetCustomProperty(KEY_STOP_LINE_X).empty())
+		{
+			aSource->SetCustomProperty(KEY_STOP_LINE_X, PlusCommon::ToString(this->GetStopLineX()));
+		}
+		if (!aSource->GetCustomProperty(KEY_STOP_LINE_Y).empty())
+		{
+			aSource->SetCustomProperty(KEY_STOP_LINE_Y, PlusCommon::ToString(this->GetStopLineY()));
+		}
+
+		if (!aSource->GetCustomProperty(KEY_START_LINE_ANGLE).empty())
+		{
+			aSource->SetCustomProperty(KEY_START_LINE_ANGLE, PlusCommon::ToString(this->GetStartLineAngle()));
+		}
+		if (!aSource->GetCustomProperty(KEY_STOP_LINE_ANGLE).empty())
+		{
+			aSource->SetCustomProperty(KEY_STOP_LINE_ANGLE, PlusCommon::ToString(this->GetStopLineAngle()));
 		}
 
 		LOG_DEBUG("Add DeviceId: " << this->GetDeviceId());
@@ -1035,4 +1160,67 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::ProcessParameterValues(/*std::map<st
 	}
 
 	return PLUS_SUCCESS;
+}
+
+double vtkPlusBkProFocusOemVideoSource::CalculateDepthMm()
+{
+	double depth_mm = (StopDepth_m - StartDepth_m) / 1000.0;
+	//return PlusCommon::ToString(depth_mm);
+	return depth_mm;
+}
+
+int vtkPlusBkProFocusOemVideoSource::CalculateGain()
+{
+	//return PlusCommon::ToString(gain_percent);
+	return gain_percent;
+}
+
+double vtkPlusBkProFocusOemVideoSource::GetStartDepth()
+{
+	return StartDepth_m / 1000.0;
+}
+
+double vtkPlusBkProFocusOemVideoSource::GetStopDepth()
+{
+	return StopDepth_m / 1000.0;
+}
+double vtkPlusBkProFocusOemVideoSource::GetStartLineX()
+{
+	return StartLineX_m / 1000.0;
+}
+
+double vtkPlusBkProFocusOemVideoSource::GetStartLineY()
+{
+	return StartLineY_m / 1000.0;
+}
+
+double vtkPlusBkProFocusOemVideoSource::GetStopLineX()
+{
+	return StopLineX_m / 1000.0;
+}
+
+double vtkPlusBkProFocusOemVideoSource::GetStopLineY()
+{
+	return StopLineY_m / 1000.0;
+}
+
+double vtkPlusBkProFocusOemVideoSource::GetStartLineAngle()
+{
+	return StartLineAngle_rad;
+}
+
+double vtkPlusBkProFocusOemVideoSource::GetStopLineAngle()
+{
+	return StopLineAngle_rad;
+}
+
+vtkPlusBkProFocusOemVideoSource::PROBE_TYPE vtkPlusBkProFocusOemVideoSource::GetProbeType()
+{
+	PROBE_TYPE probeType;
+	probeType = UNKNOWN;
+	if (StopLineAngle_rad - StartLineAngle_rad  > 0.001)
+		probeType = SECTOR;
+	else
+		probeType = LINEAR;
+	return probeType;
 }

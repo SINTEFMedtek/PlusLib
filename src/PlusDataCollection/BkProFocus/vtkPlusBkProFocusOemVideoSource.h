@@ -25,6 +25,14 @@
 class vtkPlusDataCollectionExport vtkPlusBkProFocusOemVideoSource : public vtkPlusUsDevice
 {
 public:
+
+	enum PROBE_TYPE
+	{
+		SECTOR,
+		LINEAR,
+		UNKNOWN
+	};
+
   static vtkPlusBkProFocusOemVideoSource *New();
   vtkTypeMacro(vtkPlusBkProFocusOemVideoSource, vtkPlusUsDevice);
   virtual void PrintSelf(ostream& os, vtkIndent indent) VTK_OVERRIDE;
@@ -65,6 +73,19 @@ public:
   PlusStatus TriggerParameterAnswers(const std::vector<std::string> parameterNames);
 
 protected:
+	static const char* KEY_DEPTH;
+	static const char* KEY_GAIN;
+	
+	static const char* KEY_START_DEPTH;
+	static const char* KEY_STOP_DEPTH;
+	static const char* KEY_START_LINE_X;
+	static const char* KEY_START_LINE_Y;
+	static const char* KEY_STOP_LINE_X;
+	static const char* KEY_STOP_LINE_Y;
+	static const char* KEY_START_LINE_ANGLE;
+	static const char* KEY_STOP_LINE_ANGLE;
+	static const char* KEY_PROBE_TYPE;
+	//static const char* KEY_SECTOR_INFO;
 	
   // Size of the ultrasound image. Only used if ContinuousStreamingEnabled is true.
   unsigned int UltrasoundWindowSize[2];
@@ -112,10 +133,21 @@ protected:
 
   PlusStatus DecodePngImage(unsigned char* pngBuffer, unsigned int pngBufferSize, vtkImageData* decodedImage);
 
+  PlusStatus RequestParametersFromScanner();
   PlusStatus UpdateScannerParameters();
 
-  std::string CalculateDepth();
-  std::string CalculateGain();
+  double CalculateDepthMm();
+  int CalculateGain();
+  PROBE_TYPE GetProbeType();
+
+  double GetStartDepth();
+  double GetStopDepth();
+  double GetStartLineX();
+  double GetStartLineY();
+  double GetStopLineX();
+  double GetStopLineY();
+  double GetStartLineAngle();
+  double GetStopLineAngle();
 
   PlusStatus ProcessParameterValues(/*std::map<std::string, std::string>& parameters*/);
   PlusStatus AddParameterReplies();
