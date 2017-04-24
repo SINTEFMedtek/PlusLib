@@ -151,6 +151,7 @@ protected:
 
   PlusStatus ProcessParameterValues(/*std::map<std::string, std::string>& parameters*/);
   PlusStatus AddParameterReplies();
+  PlusStatus AddParametersToFrameFields();
 
   /*! BK ini file storing the connection and acquisition settings */
   char* IniFileName;

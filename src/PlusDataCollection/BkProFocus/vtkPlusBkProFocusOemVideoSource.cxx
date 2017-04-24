@@ -358,15 +358,17 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::AddParameterReplies()
 //----------------------------------------------------------------------------
 PlusStatus vtkPlusBkProFocusOemVideoSource::InternalUpdate()
 {
+	//Test: Remove this for now. Just send paramaters as part of TrackedFrame, added to FrameFields. 
+	//Setup which parameters to send in xml file.
+
 	//Always send parameter replies
-	this->ProcessParameterValues();
+//	this->ProcessParameterValues();
 	/*if (this->AddParameterReplies() != PLUS_SUCCESS)
 	{
 		LOG_ERROR("Error adding parameter replies on channel " << this->Internal->Channel->GetChannelId());
 		return PLUS_FAIL;
 	}*/
 	
-
   if (!this->Recording)
   {
     // drop the frame, we are not recording data now
@@ -523,8 +525,9 @@ fclose(f);
 
   }
 
-  if (aSource->AddItem(this->Internal->DecodedImageFrame, aSource->GetInputImageOrientation(), US_IMG_BRIGHTNESS, this->FrameNumber) != PLUS_SUCCESS)
-  //if (aSource->AddItem(this->Internal->DecodedImageFrame, aSource->GetInputImageOrientation(), US_IMG_BRIGHTNESS, this->FrameNumber, UNDEFINED_TIMESTAMP, UNDEFINED_TIMESTAMP, &customFields) != PLUS_SUCCESS)
+  this->AddParametersToFrameFields();
+  //if (aSource->AddItem(this->Internal->DecodedImageFrame, aSource->GetInputImageOrientation(), US_IMG_BRIGHTNESS, this->FrameNumber) != PLUS_SUCCESS)
+  if (aSource->AddItem(this->Internal->DecodedImageFrame, aSource->GetInputImageOrientation(), US_IMG_BRIGHTNESS, this->FrameNumber, UNDEFINED_TIMESTAMP, UNDEFINED_TIMESTAMP, &this->FrameFields) != PLUS_SUCCESS)
   {
     LOG_ERROR("Error adding item to video source " << aSource->GetSourceId() << " on channel " << this->Internal->Channel->GetChannelId());
     return PLUS_FAIL;
@@ -1158,6 +1161,34 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::ProcessParameterValues(/*std::map<st
 	{
 		return PLUS_FAIL;
 	}
+
+	return PLUS_SUCCESS;
+}
+
+//----------------------------------------------------------------------------
+PlusStatus vtkPlusBkProFocusOemVideoSource::AddParametersToFrameFields()
+{
+	if (this->UpdateScannerParameters() != PLUS_SUCCESS)
+	{
+		//Disable for testing
+#ifndef OFFLINE_TESTING
+		return PLUS_FAIL;
+#endif
+	}
+
+	vtkPlusUsDevice::InternalUpdate();// Move to beginning of vtkPlusBkProFocusOemVideoSource::InternalUpdate()?
+
+	this->FrameFields[KEY_DEPTH]            = PlusCommon::ToString(this->CalculateDepthMm());
+	this->FrameFields[KEY_GAIN]             = PlusCommon::ToString(this->CalculateGain());
+	this->FrameFields[KEY_PROBE_TYPE]       = PlusCommon::ToString(this->GetProbeType());
+	this->FrameFields[KEY_START_DEPTH]      = PlusCommon::ToString(this->GetStartDepth());
+	this->FrameFields[KEY_STOP_DEPTH]       = PlusCommon::ToString(this->GetStopDepth());
+	this->FrameFields[KEY_START_LINE_X]     = PlusCommon::ToString(this->GetStartLineX());
+	this->FrameFields[KEY_START_LINE_Y]     = PlusCommon::ToString(this->GetStartLineY());
+	this->FrameFields[KEY_STOP_LINE_X]      = PlusCommon::ToString(this->GetStopLineX());
+	this->FrameFields[KEY_STOP_LINE_Y]      = PlusCommon::ToString(this->GetStopLineY());
+	this->FrameFields[KEY_START_LINE_ANGLE] = PlusCommon::ToString(this->GetStartLineAngle());
+	this->FrameFields[KEY_STOP_LINE_ANGLE]  = PlusCommon::ToString(this->GetStopLineAngle());
 
 	return PLUS_SUCCESS;
 }
