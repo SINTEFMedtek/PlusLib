@@ -60,6 +60,18 @@ const char* vtkPlusBkProFocusOemVideoSource::KEY_STOP_LINE_ANGLE	= "StopLineAngl
 //const char* vtkPlusBkProFocusOemVideoSource::KEY_WIDTH			= "Width";
 const char* vtkPlusBkProFocusOemVideoSource::KEY_PROBE_TYPE			= "ProbeType";
 
+const char* vtkPlusBkProFocusOemVideoSource::KEY_SPACING_X			= "SpacingX";
+const char* vtkPlusBkProFocusOemVideoSource::KEY_SPACING_Y			= "SpacingY";
+
+const char* vtkPlusBkProFocusOemVideoSource::KEY_SECTOR_LEFT_PIXELS		= "SectorLeftPixels";
+const char* vtkPlusBkProFocusOemVideoSource::KEY_SECTOR_RIGHT_PIXELS	= "SectorRightPixels";
+const char* vtkPlusBkProFocusOemVideoSource::KEY_SECTOR_TOP_PIXELS		= "SectorTopPixels";
+const char* vtkPlusBkProFocusOemVideoSource::KEY_SECTOR_BOTTOM_PIXELS	= "SectorBottomPixels";
+const char* vtkPlusBkProFocusOemVideoSource::KEY_SECTOR_LEFT_MM			= "SectorLeftMm";
+const char* vtkPlusBkProFocusOemVideoSource::KEY_SECTOR_RIGHT_MM		= "SectorRightMm";
+const char* vtkPlusBkProFocusOemVideoSource::KEY_SECTOR_TOP_MM			= "SectorTopMm";
+const char* vtkPlusBkProFocusOemVideoSource::KEY_SECTOR_BOTTOM_MM		= "SectorBottomMm";
+
 vtkStandardNewMacro(vtkPlusBkProFocusOemVideoSource);
 
 class vtkPlusBkProFocusOemVideoSource::vtkInternal
@@ -525,6 +537,9 @@ fclose(f);
 
   }
 
+  double spacingZ_mm = 1.0;
+  this->Internal->DecodedImageFrame->SetSpacing(GetSpacingX(), GetSpacingY(), spacingZ_mm);//Spacing is not being sent to IGTLink?
+
   this->AddParametersToFrameFields();
   //if (aSource->AddItem(this->Internal->DecodedImageFrame, aSource->GetInputImageOrientation(), US_IMG_BRIGHTNESS, this->FrameNumber) != PLUS_SUCCESS)
   if (aSource->AddItem(this->Internal->DecodedImageFrame, aSource->GetInputImageOrientation(), US_IMG_BRIGHTNESS, this->FrameNumber, UNDEFINED_TIMESTAMP, UNDEFINED_TIMESTAMP, &this->FrameFields) != PLUS_SUCCESS)
@@ -581,7 +596,7 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::QueryGeometryScanarea()
 	// Retrieve the "DATA:B_GEOMETRY_SCANAREA StartLineX(m),StartLineY(m),StartLineAngle(rad),StartDepth(m),StopLineX(m),StopLineY(m),StopLineAngle(rad),StopDepth(m);"
 	sscanf(&(this->Internal->OemClientReadBuffer[0]), "DATA:B_GEOMETRY_SCANAREA:A %lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf;",
 		&StartLineX_m, &StartLineY_m, &StartLineAngle_rad, &StartDepth_m, &StopLineX_m, &StopLineY_m, &StopLineAngle_rad, &StopDepth_m);
-	LOG_TRACE("Ultrasound geometry. StartLineX_m: " << StartLineX_m << " StartLineY_m: " << StartLineY_m << " StartLineAngle_rad: " << StartLineAngle_rad <<
+	LOG_DEBUG("Ultrasound geometry. StartLineX_m: " << StartLineX_m << " StartLineY_m: " << StartLineY_m << " StartLineAngle_rad: " << StartLineAngle_rad <<
 		" StartDepth_m: " << StartDepth_m << " StopLineX_m: " << StopLineX_m << " StopLineY_m: " << StopLineY_m << " StopLineAngle_rad: " << StopLineAngle_rad << " StopDepth_m: " << StopDepth_m);
 
 	return retval;
@@ -600,7 +615,7 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::QueryGeometryPixel()
 	// Retrieve the "DATA:B_GEOMETRY_PIXEL Left,Top,Right,Bottom;"
 	sscanf(&(this->Internal->OemClientReadBuffer[0]), "DATA:B_GEOMETRY_PIXEL:A %d,%d,%d,%d;",
 		&pixelLeft_pix, &pixelTop_pix, &pixelRight_pix, &pixelBottom_pix);
-	LOG_TRACE("Ultrasound geometry. pixelLeft_pix: " << pixelLeft_pix << " pixelTop_pix: " << pixelTop_pix << " pixelRight_pix: " << pixelRight_pix << " pixelBottom_pix: " << pixelBottom_pix);
+	LOG_DEBUG("Ultrasound geometry. pixelLeft_pix: " << pixelLeft_pix << " pixelTop_pix: " << pixelTop_pix << " pixelRight_pix: " << pixelRight_pix << " pixelBottom_pix: " << pixelBottom_pix);
 
 	return retval;
 }
@@ -617,7 +632,7 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::QueryGeometryTissue()
 
 	sscanf(&(this->Internal->OemClientReadBuffer[0]), "DATA:B_GEOMETRY_TISSUE:A %lf,%lf,%lf,%lf;",
 		&tissueLeft_m, &tissueTop_m, &tissueRight_m, &tissueBottom_m);
-	LOG_TRACE("Ultrasound geometry. tissueLeft_m: " << tissueLeft_m << " tissueTop_m: " << tissueTop_m << " tissueRight_m: " << tissueRight_m << " tissueBottom_m: " << tissueBottom_m);
+	LOG_DEBUG("Ultrasound geometry. tissueLeft_m: " << tissueLeft_m << " tissueTop_m: " << tissueTop_m << " tissueRight_m: " << tissueRight_m << " tissueBottom_m: " << tissueBottom_m);
 
 	return retval;
 }
@@ -978,6 +993,16 @@ void vtkPlusBkProFocusOemVideoSource::GetValidParameterNames(std::vector<std::st
 	parameterNames.push_back(KEY_START_LINE_ANGLE);
 	parameterNames.push_back(KEY_STOP_LINE_ANGLE);
 	parameterNames.push_back(KEY_PROBE_TYPE);
+	parameterNames.push_back(KEY_SPACING_X);
+	parameterNames.push_back(KEY_SPACING_Y);
+	parameterNames.push_back(KEY_SECTOR_LEFT_PIXELS);
+	parameterNames.push_back(KEY_SECTOR_RIGHT_PIXELS);
+	parameterNames.push_back(KEY_SECTOR_TOP_PIXELS);
+	parameterNames.push_back(KEY_SECTOR_BOTTOM_PIXELS);
+	parameterNames.push_back(KEY_SECTOR_LEFT_MM);
+	parameterNames.push_back(KEY_SECTOR_RIGHT_MM);
+	parameterNames.push_back(KEY_SECTOR_TOP_MM);
+	parameterNames.push_back(KEY_SECTOR_BOTTOM_MM);
 	//parameterNames.push_back(KEY_SECTOR_INFO);
 }
 
@@ -1151,6 +1176,49 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::ProcessParameterValues(/*std::map<st
 			aSource->SetCustomProperty(KEY_STOP_LINE_ANGLE, PlusCommon::ToString(this->GetStopLineAngle()));
 		}
 
+		if (!aSource->GetCustomProperty(KEY_SPACING_X).empty())
+		{
+			aSource->SetCustomProperty(KEY_SPACING_X, PlusCommon::ToString(this->GetSpacingX()));
+		}
+		if (!aSource->GetCustomProperty(KEY_SPACING_Y).empty())
+		{
+			aSource->SetCustomProperty(KEY_SPACING_Y, PlusCommon::ToString(this->GetSpacingY()));
+		}
+
+		if (!aSource->GetCustomProperty(KEY_SECTOR_LEFT_PIXELS).empty())
+		{
+			aSource->SetCustomProperty(KEY_SECTOR_LEFT_PIXELS, PlusCommon::ToString(this->GetSectorLeftPixels()));
+		}
+		if (!aSource->GetCustomProperty(KEY_SECTOR_RIGHT_PIXELS).empty())
+		{
+			aSource->SetCustomProperty(KEY_SECTOR_RIGHT_PIXELS, PlusCommon::ToString(this->GetSectorRightPixels()));
+		}
+		if (!aSource->GetCustomProperty(KEY_SECTOR_TOP_PIXELS).empty())
+		{
+			aSource->SetCustomProperty(KEY_SECTOR_TOP_PIXELS, PlusCommon::ToString(this->GetSectorTopPixels()));
+		}
+		if (!aSource->GetCustomProperty(KEY_SECTOR_BOTTOM_PIXELS).empty())
+		{
+			aSource->SetCustomProperty(KEY_SECTOR_BOTTOM_PIXELS, PlusCommon::ToString(this->GetSectorBottomPixels()));
+		}
+
+		if (!aSource->GetCustomProperty(KEY_SECTOR_LEFT_MM).empty())
+		{
+			aSource->SetCustomProperty(KEY_SECTOR_LEFT_MM, PlusCommon::ToString(this->GetSectorLeftMm()));
+		}
+		if (!aSource->GetCustomProperty(KEY_SECTOR_RIGHT_MM).empty())
+		{
+			aSource->SetCustomProperty(KEY_SECTOR_RIGHT_MM, PlusCommon::ToString(this->GetSectorRightMm()));
+		}
+		if (!aSource->GetCustomProperty(KEY_SECTOR_TOP_MM).empty())
+		{
+			aSource->SetCustomProperty(KEY_SECTOR_TOP_MM, PlusCommon::ToString(this->GetSectorTopMm()));
+		}
+		if (!aSource->GetCustomProperty(KEY_SECTOR_BOTTOM_MM).empty())
+		{
+			aSource->SetCustomProperty(KEY_SECTOR_BOTTOM_MM, PlusCommon::ToString(this->GetSectorBottomMm()));
+		}
+
 		LOG_DEBUG("Add DeviceId: " << this->GetDeviceId());
 		//parameters["DeviceId"] = this->GetDeviceId();
 		aSource->SetCustomProperty("DeviceId", this->GetDeviceId());
@@ -1189,13 +1257,22 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::AddParametersToFrameFields()
 	this->FrameFields[KEY_STOP_LINE_Y]      = PlusCommon::ToString(this->GetStopLineY());
 	this->FrameFields[KEY_START_LINE_ANGLE] = PlusCommon::ToString(this->GetStartLineAngle());
 	this->FrameFields[KEY_STOP_LINE_ANGLE]  = PlusCommon::ToString(this->GetStopLineAngle());
-
+	this->FrameFields[KEY_SPACING_X]		= PlusCommon::ToString(this->GetSpacingX());
+	this->FrameFields[KEY_SPACING_Y]		= PlusCommon::ToString(this->GetSpacingY());
+	this->FrameFields[KEY_SECTOR_LEFT_PIXELS]	= PlusCommon::ToString(this->GetSectorLeftPixels());
+	this->FrameFields[KEY_SECTOR_RIGHT_PIXELS]	= PlusCommon::ToString(this->GetSectorRightPixels());
+	this->FrameFields[KEY_SECTOR_TOP_PIXELS]	= PlusCommon::ToString(this->GetSectorTopPixels());
+	this->FrameFields[KEY_SECTOR_BOTTOM_PIXELS] = PlusCommon::ToString(this->GetSectorBottomPixels());
+	this->FrameFields[KEY_SECTOR_LEFT_MM]		= PlusCommon::ToString(this->GetSectorLeftMm());
+	this->FrameFields[KEY_SECTOR_RIGHT_MM]		= PlusCommon::ToString(this->GetSectorRightMm());
+	this->FrameFields[KEY_SECTOR_TOP_MM]		= PlusCommon::ToString(this->GetSectorTopMm());
+	this->FrameFields[KEY_SECTOR_BOTTOM_MM]		= PlusCommon::ToString(this->GetSectorBottomMm());
 	return PLUS_SUCCESS;
 }
 
 double vtkPlusBkProFocusOemVideoSource::CalculateDepthMm()
 {
-	double depth_mm = (StopDepth_m - StartDepth_m) / 1000.0;
+	double depth_mm = (StopDepth_m - StartDepth_m) * 1000.0;
 	//return PlusCommon::ToString(depth_mm);
 	return depth_mm;
 }
@@ -1208,31 +1285,31 @@ int vtkPlusBkProFocusOemVideoSource::CalculateGain()
 
 double vtkPlusBkProFocusOemVideoSource::GetStartDepth()
 {
-	return StartDepth_m / 1000.0;
+	return StartDepth_m * 1000.0;
 }
 
 double vtkPlusBkProFocusOemVideoSource::GetStopDepth()
 {
-	return StopDepth_m / 1000.0;
+	return StopDepth_m * 1000.0;
 }
 double vtkPlusBkProFocusOemVideoSource::GetStartLineX()
 {
-	return StartLineX_m / 1000.0;
+	return StartLineX_m * 1000.0;
 }
 
 double vtkPlusBkProFocusOemVideoSource::GetStartLineY()
 {
-	return StartLineY_m / 1000.0;
+	return StartLineY_m * 1000.0;
 }
 
 double vtkPlusBkProFocusOemVideoSource::GetStopLineX()
 {
-	return StopLineX_m / 1000.0;
+	return StopLineX_m * 1000.0;
 }
 
 double vtkPlusBkProFocusOemVideoSource::GetStopLineY()
 {
-	return StopLineY_m / 1000.0;
+	return StopLineY_m * 1000.0;
 }
 
 double vtkPlusBkProFocusOemVideoSource::GetStartLineAngle()
@@ -1244,6 +1321,64 @@ double vtkPlusBkProFocusOemVideoSource::GetStopLineAngle()
 {
 	return StopLineAngle_rad;
 }
+double vtkPlusBkProFocusOemVideoSource::GetSpacingX()
+{
+	double spacingX_mm = 1000.0 * (tissueRight_m - tissueLeft_m) / (pixelRight_pix - pixelLeft_pix);
+#ifdef OFFLINE_TESTING
+	spacingX_mm = 1.0;
+#endif
+	return spacingX_mm;
+}
+
+double vtkPlusBkProFocusOemVideoSource::GetSpacingY()
+{
+	double spacingY_mm = 1000.0 * (tissueTop_m - tissueBottom_m) / (pixelBottom_pix - pixelTop_pix);
+#ifdef OFFLINE_TESTING
+	spacingY_mm = 1.0;
+#endif
+	return spacingY_mm;
+}
+
+int vtkPlusBkProFocusOemVideoSource::GetSectorLeftPixels()
+{
+	return pixelLeft_pix;
+}
+int vtkPlusBkProFocusOemVideoSource::GetSectorRightPixels()
+{
+	return pixelRight_pix;
+}
+
+int vtkPlusBkProFocusOemVideoSource::GetSectorTopPixels()
+{
+	return pixelTop_pix;
+}
+
+int vtkPlusBkProFocusOemVideoSource::GetSectorBottomPixels()
+{
+	return pixelBottom_pix;
+}
+
+double vtkPlusBkProFocusOemVideoSource::GetSectorLeftMm()
+{
+	return tissueLeft_m * 1000.0;
+}
+
+double vtkPlusBkProFocusOemVideoSource::GetSectorRightMm()
+{
+	return tissueRight_m * 1000.0;
+}
+
+double vtkPlusBkProFocusOemVideoSource::GetSectorTopMm()
+{
+	return tissueTop_m * 1000.0;
+}
+
+double vtkPlusBkProFocusOemVideoSource::GetSectorBottomMm()
+{
+	return tissueBottom_m * 1000.0;
+}
+
+
 
 vtkPlusBkProFocusOemVideoSource::PROBE_TYPE vtkPlusBkProFocusOemVideoSource::GetProbeType()
 {

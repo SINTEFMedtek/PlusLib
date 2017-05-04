@@ -257,6 +257,7 @@ PlusStatus vtkPlusBuffer::AddItem(vtkImageData* frame,
 
   const int* frameExtent = frame->GetExtent();
   const int frameSize[3] = {(frameExtent[1] - frameExtent[0] + 1), (frameExtent[3] - frameExtent[2] + 1), (frameExtent[5] - frameExtent[4] + 1)};
+  //Why throw away vtkImageData here?
   return this->AddItem(reinterpret_cast<unsigned char*>(frame->GetScalarPointer()), usImageOrientation, frameSize, frame->GetScalarType(), frame->GetNumberOfScalarComponents(), imageType, 0, frameNumber, clipRectangleOrigin, clipRectangleSize, unfilteredTimestamp, filteredTimestamp, customFields);
 }
 

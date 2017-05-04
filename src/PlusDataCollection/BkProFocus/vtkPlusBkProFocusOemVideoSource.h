@@ -28,9 +28,9 @@ public:
 
 	enum PROBE_TYPE
 	{
+		UNKNOWN,
 		SECTOR,
-		LINEAR,
-		UNKNOWN
+		LINEAR		
 	};
 
   static vtkPlusBkProFocusOemVideoSource *New();
@@ -85,6 +85,17 @@ protected:
 	static const char* KEY_START_LINE_ANGLE;
 	static const char* KEY_STOP_LINE_ANGLE;
 	static const char* KEY_PROBE_TYPE;
+	static const char* KEY_SPACING_X;
+	static const char* KEY_SPACING_Y;
+
+	static const char* KEY_SECTOR_LEFT_PIXELS;
+	static const char* KEY_SECTOR_RIGHT_PIXELS;
+	static const char* KEY_SECTOR_TOP_PIXELS;
+	static const char* KEY_SECTOR_BOTTOM_PIXELS;
+	static const char* KEY_SECTOR_LEFT_MM;
+	static const char* KEY_SECTOR_RIGHT_MM;
+	static const char* KEY_SECTOR_TOP_MM;
+	static const char* KEY_SECTOR_BOTTOM_MM;
 	//static const char* KEY_SECTOR_INFO;
 	
   // Size of the ultrasound image. Only used if ContinuousStreamingEnabled is true.
@@ -148,6 +159,16 @@ protected:
   double GetStopLineY();
   double GetStartLineAngle();
   double GetStopLineAngle();
+  double GetSpacingX();
+  double GetSpacingY();
+  int GetSectorLeftPixels();
+  int GetSectorRightPixels();
+  int GetSectorTopPixels();
+  int GetSectorBottomPixels();
+  double GetSectorLeftMm();
+  double GetSectorRightMm();
+  double GetSectorTopMm();
+  double GetSectorBottomMm();
 
   PlusStatus ProcessParameterValues(/*std::map<std::string, std::string>& parameters*/);
   PlusStatus AddParameterReplies();
