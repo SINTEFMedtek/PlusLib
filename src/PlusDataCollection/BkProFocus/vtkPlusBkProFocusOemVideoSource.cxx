@@ -153,6 +153,11 @@ vtkPlusBkProFocusOemVideoSource::vtkPlusBkProFocusOemVideoSource()
   this->tissueRight_m = 0;
   this->tissueBottom_m = 0;
   this->gain_percent = 0;
+  this->probeTypePortA = UNKNOWN;
+  this->probeTypePortB = UNKNOWN;
+  this->probeTypePortC = UNKNOWN;
+  this->probeTypePortM = UNKNOWN;
+  this->probePort = "";
 
   this->RequireImageOrientationInConfiguration = true;
 
@@ -345,6 +350,7 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::InternalStopRecording()
 }
 
 
+//Not used for now
 //----------------------------------------------------------------------------
 PlusStatus vtkPlusBkProFocusOemVideoSource::AddParameterReplies()
 {
@@ -652,6 +658,144 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::QueryGain()
 
 	return retval;
 }
+
+
+//-----------------------------------------------------------------------------
+// QUERY:TRANSDUCER_LIST;
+// Get list of transducers, connected to which port, and tranducer type
+PlusStatus vtkPlusBkProFocusOemVideoSource::QueryTransducerList()
+{
+	std::string query = "QUERY:TRANSDUCER_LIST;";
+	LOG_TRACE("Query from vtkPlusBkProFocusOemVideoSource: " << query);
+
+	size_t replyBytes = 200;
+	PlusStatus retval = SendReceiveQuery(query, replyBytes);
+	
+	std::istringstream replyStream(this->ReadBufferIntoString());
+
+	std::string queryString;
+	std::getline(replyStream, queryString, ' ');
+
+	if (queryString.compare("DATA:TRANSDUCER_LIST") != 0)
+	{
+		LOG_ERROR("Query answer should be DATA:TRANSDUCER_LIST, but is: " << queryString);
+		retval = PLUS_FAIL;
+	}
+	else
+	{
+		std::string probeName;
+		std::string probeType;
+		//Port A
+		std::getline(replyStream, probeName, ',');
+		std::getline(replyStream, probeType, ',');
+		this->SetProbeTypeForPort("A", RemoveQuotationMarks(probeType));
+		//Port B
+		std::getline(replyStream, probeName, ',');
+		std::getline(replyStream, probeType, ',');
+		this->SetProbeTypeForPort("B", RemoveQuotationMarks(probeType));
+		//Port C
+		std::getline(replyStream, probeName, ',');
+		std::getline(replyStream, probeType, ',');
+		this->SetProbeTypeForPort("C", RemoveQuotationMarks(probeType));
+
+		//Port M
+		std::getline(replyStream, probeName, ',');
+		std::getline(replyStream, probeType, ',');
+		this->SetProbeTypeForPort("M", RemoveQuotationMarks(probeType));
+	}
+
+	return retval;
+}
+
+//Discards the ; at the end of the string
+std::string vtkPlusBkProFocusOemVideoSource::ReadBufferIntoString()
+{
+	std::string retval;
+	bool stop = false;
+	int readPos = 0;
+
+	while (readPos < this->Internal->OemClientReadBuffer.size() && this->Internal->OemClientReadBuffer[readPos] != ';')
+	{
+		retval += this->Internal->OemClientReadBuffer[readPos++];
+	}
+	return retval;
+}
+
+std::string vtkPlusBkProFocusOemVideoSource::RemoveQuotationMarks(std::string inString)
+{
+	std::string retval;
+	std::istringstream inStream(inString);
+	std::getline(inStream, retval, '"');//Removes first "
+	std::getline(inStream, retval, '"');
+	return retval;
+}
+
+void vtkPlusBkProFocusOemVideoSource::SetProbeTypeForPort(std::string port, std::string probeTypeString)
+{
+	PROBE_TYPE probeTypeEnum = UNKNOWN;
+	
+	if (probeTypeString.compare("C") == 0)
+		probeTypeEnum = SECTOR;
+	else if (probeTypeString.compare("L") == 0)
+		probeTypeEnum = LINEAR;
+	else if (probeTypeString.compare("M") == 0)
+		probeTypeEnum = MECHANICAL;
+	
+	if (port.compare("A") == 0)
+		probeTypePortA = probeTypeEnum;
+	else if (port.compare("B") == 0)
+		probeTypePortB = probeTypeEnum;
+	else if (port.compare("C") == 0)
+		probeTypePortC = probeTypeEnum;
+	else if (port.compare("M") == 0)
+		probeTypePortM = probeTypeEnum;
+}
+
+//-----------------------------------------------------------------------------
+// QUERY:TRANSDUCER;
+// Get transducer that is used to create view A
+PlusStatus vtkPlusBkProFocusOemVideoSource::QueryTransducer()
+{
+	std::string query = "QUERY:TRANSDUCER:A;";
+	LOG_TRACE("Query from vtkPlusBkProFocusOemVideoSource: " << query);
+
+	size_t replyBytes = 100;
+	if (SendReceiveQuery(query, replyBytes) != PLUS_SUCCESS)
+	{
+		return PLUS_FAIL;
+	}
+
+	return this->ParseTransducerData();
+}
+
+PlusStatus vtkPlusBkProFocusOemVideoSource::ParseTransducerData()
+{
+	std::istringstream replyStream(this->ReadBufferIntoString());
+
+	std::string queryString;
+	std::getline(replyStream, queryString, ' ');
+	
+	PlusStatus retval = PLUS_SUCCESS;
+
+	if (queryString.compare("DATA:TRANSDUCER:A") != 0)
+	{
+		LOG_ERROR("Query answer should be DATA:TRANSDUCER:A, but is: " << queryString);
+		retval = PLUS_FAIL;
+	}
+	else
+	{
+		std::string probePortString;
+		std::string probeName;
+		std::getline(replyStream, probePortString, ',');
+		std::getline(replyStream, probeName, ',');
+		probePort = this->RemoveQuotationMarks(probePortString);
+	}
+	return retval;
+}
+
+//-----------------------------------------------------------------------------
+// QUERY:TRANSDUCER:A;
+// Get which tranducer is used in the selecetd view
 
 //-----------------------------------------------------------------------------
 // CONFIG:DATA:SUBSCRIBE;
@@ -1063,6 +1207,14 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::RequestParametersFromScanner()
 	{
 		return PLUS_FAIL;
 	}
+	if (this->QueryTransducerList() != PLUS_SUCCESS)
+	{
+		return PLUS_FAIL;
+	}
+	if (this->QueryTransducer() != PLUS_SUCCESS)
+	{
+		return PLUS_FAIL;
+	}
 	
 	return PLUS_SUCCESS;
 }
@@ -1095,6 +1247,7 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::UpdateScannerParameters()
 	return PLUS_SUCCESS;
 }
 
+//Not used for now
 PlusStatus vtkPlusBkProFocusOemVideoSource::ProcessParameterValues(/*std::map<std::string, std::string>& parameters*/)
 {
 	LOG_DEBUG("vtkPlusBkProFocusOemVideoSource::ProcessParameterValues()");
@@ -1379,14 +1532,16 @@ double vtkPlusBkProFocusOemVideoSource::GetSectorBottomMm()
 }
 
 
-
 vtkPlusBkProFocusOemVideoSource::PROBE_TYPE vtkPlusBkProFocusOemVideoSource::GetProbeType()
 {
-	PROBE_TYPE probeType;
-	probeType = UNKNOWN;
-	if (StopLineAngle_rad - StartLineAngle_rad  > 0.001)
-		probeType = SECTOR;
+	if (probePort.compare("A"))
+		return probeTypePortA;
+	else if (probePort.compare("B"))
+		return probeTypePortB;
+	else if (probePort.compare("C"))
+		return probeTypePortC;
+	else if (probePort.compare("M"))
+		return probeTypePortM;
 	else
-		probeType = LINEAR;
-	return probeType;
+		return UNKNOWN;
 }

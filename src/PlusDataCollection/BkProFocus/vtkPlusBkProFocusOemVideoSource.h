@@ -30,7 +30,8 @@ public:
 	{
 		UNKNOWN,
 		SECTOR,
-		LINEAR		
+		LINEAR,
+		MECHANICAL
 	};
 
   static vtkPlusBkProFocusOemVideoSource *New();
@@ -108,6 +109,9 @@ protected:
   //double resolutionX_m, resolutionY_m, probeCenterX_m, probeCenterY_m, probeRadius_m;
   int gain_percent;
 
+  PROBE_TYPE probeTypePortA, probeTypePortB, probeTypePortC, probeTypePortM;
+  std::string probePort;
+
   /*! Constructor */
   vtkPlusBkProFocusOemVideoSource();
   /*! Destructor */
@@ -136,6 +140,11 @@ protected:
   //PlusStatus QueryTransverseImageCalibration();
   //PlusStatus QuerySagImageCalibration();
   PlusStatus QueryGain();
+  PlusStatus QueryTransducerList();
+  PlusStatus QueryTransducer();
+
+
+  PlusStatus ParseTransducerData();
 
   PlusStatus CommandPowerDopplerOn();
   PlusStatus SendReceiveQuery(std::string query, size_t replyBytes);
@@ -173,6 +182,10 @@ protected:
   PlusStatus ProcessParameterValues(/*std::map<std::string, std::string>& parameters*/);
   PlusStatus AddParameterReplies();
   PlusStatus AddParametersToFrameFields();
+
+  std::string ReadBufferIntoString();
+  std::string RemoveQuotationMarks(std::string inString);
+  void SetProbeTypeForPort(std::string port, std::string probeTypeString);
 
   /*! BK ini file storing the connection and acquisition settings */
   char* IniFileName;
