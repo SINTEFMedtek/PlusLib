@@ -242,52 +242,27 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::InternalConnect()
 
   if (this->ContinuousStreamingEnabled)
   {
-    // Query image size before data streaming
-    if (this->QueryImageSize() != PLUS_SUCCESS)
-    {
-      return PLUS_FAIL;
-    }
-
-	if (this->QueryGeometryScanarea() != PLUS_SUCCESS)
-	{
-		return PLUS_FAIL;
-	}
-	if (this->QueryGeometryPixel() != PLUS_SUCCESS)
-	{
-		return PLUS_FAIL;
-	}
-	if (this->QueryGeometryTissue() != PLUS_SUCCESS)
-	{
-		return PLUS_FAIL;
-	}
-//	if (this->QueryTransverseImageCalibration() != PLUS_SUCCESS)
-//	{
-//		return PLUS_FAIL;
-//	}
-//	if (this->QuerySagImageCalibration() != PLUS_SUCCESS)
-//	{
-//		return PLUS_FAIL;
-//	}
+	  if (!(this->RequestParametersFromScanner()
+		  && this->ConfigEventsOn()
+		  && this->SubscribeToParameterChanges()))
+	  {
+		  return PLUS_FAIL;
+	  }
 
     // Start data streaming
-    LOG_TRACE("Start data streaming");
     std::string query = "QUERY:GRAB_FRAME \"ON\",20;";
-    size_t queryWrittenSize = this->Internal->OemClient->Write(query.c_str(), query.size());
-    if (queryWrittenSize != query.size() + 2) // OemClient->Write returns query.size()+2 on a successfully sent event (see #722)
-    {
-      LOG_ERROR("Failed to send query through BK OEM interface (" << query << ")" << queryWrittenSize << " vs " << query.size() << "+2");
-      return PLUS_FAIL;
-    }
+    LOG_TRACE("Start data streaming. Query: " << query);
+	if (!SendQuery(query))
+	{
+		return PLUS_FAIL;
+	}
 
-    // Retrieve the "ACK;"
-    this->Internal->OemClientReadBuffer.resize(10);
-    size_t numBytesReceived = this->Internal->OemClient->Read(&(this->Internal->OemClientReadBuffer[0]), 10);
-    if (numBytesReceived == 0)
-    {
-      LOG_ERROR("Failed to read response from BK OEM interface");
-      return PLUS_FAIL;
-    }
-    LOG_TRACE("Got ACK;");
+	//Process all parameter messages, and read the first image message
+	size_t numBytesReceived = 0;
+	if (!ProcessMessagesAndReadNextImage(500, numBytesReceived))
+	{
+		return PLUS_FAIL;
+	}
   }
 
 #endif
@@ -305,11 +280,9 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::InternalDisconnect()
 #ifndef OFFLINE_TESTING
   std::string query = "QUERY:GRAB_FRAME \"OFF\";";
   LOG_TRACE("Query from vtkPlusBkProFocusOemVideoSource: " << query);
-  size_t queryWrittenSize = this->Internal->OemClient->Write(query.c_str(), query.size());
-  if (queryWrittenSize != query.size() + 2) // OemClient->Write returns query.size()+2 on a successfully sent event (see #722)
+  if (!SendQuery(query)
   {
-    LOG_ERROR("Failed to send query through BK OEM interface (" << query << ")" << queryWrittenSize << " vs " << query.size() << "+2");
-    return PLUS_FAIL;
+	  return PLUS_FAIL;
   }
 
   // Retrieve the "ACK;"
@@ -406,39 +379,21 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::InternalUpdate()
     {
       std::string query = "query:capture_image \"PNG\";";
       LOG_TRACE("Query from vtkPlusBkProFocusOemVideoSource: " << query);
-      size_t queryWrittenSize = this->Internal->OemClient->Write(query.c_str(), query.size());
-      if (queryWrittenSize != query.size() + 2) // OemClient->Write returns query.size()+2 on a successfully sent event (see #722)
-      {
-        LOG_ERROR("Failed to send query through BK OEM interface (" << query << ")" << queryWrittenSize << " vs " << query.size() << "+2");
-        return PLUS_FAIL;
-      }
+	  if (!SendQuery(query))
+	  {
+		  return PLUS_FAIL;
+	  }
     }
     else
     {
       maxReplySize = 3 * this->UltrasoundWindowSize[0] * this->UltrasoundWindowSize[1] + 30; // incl. header & command
     }
-    this->Internal->OemClientReadBuffer.resize(maxReplySize);
-    LOG_TRACE("Before client read");
-    size_t numBytesReceived = this->Internal->OemClient->Read(&(this->Internal->OemClientReadBuffer[0]), maxReplySize);
-    if (numBytesReceived == 0)
-    {
-      LOG_ERROR("Failed to read response from BK OEM interface");
-      return PLUS_FAIL;
-    }
-    LOG_TRACE("Number of bytes read: " << numBytesReceived);
-
-	//TODO: Read other subscribed messages, and not only 
-	//DATA:CAPTURE_IMAGE#...
-	//DATA:GRAB_FRAME#...
-	
-	//Possibly also receive all messages, as a subscribe message may arrive before reply to another message? 
-	
-	//Messages, may be either DATA for single or SDATA for subscribed message
-	//DATA:B_GAIN
-	//DATA:B_GEOMETRY_TISSUE
-	//DATA:B_GEOMETRY_PIXEL
-	//DATA:B_GEOMETRY_SCANAREA
-	//DATA:US_WIN_SIZE
+	//Process all incomming messages until an image message is found
+	size_t numBytesReceived = 0;
+	if (!this->ProcessMessagesAndReadNextImage(maxReplySize, numBytesReceived))
+	{
+		return PLUS_FAIL;
+	}
 	
     // First detect the #
     for (numBytesProcessed = 0; this->Internal->OemClientReadBuffer[numBytesProcessed] != '#' && numBytesProcessed < numBytesReceived; numBytesProcessed++);
@@ -558,34 +513,121 @@ fclose(f);
   return PLUS_SUCCESS;
 }
 
+
+//----------------------------------------------------------------------------
+PlusStatus vtkPlusBkProFocusOemVideoSource::ProcessMessagesAndReadNextImage(int maxReplySize, size_t &numBytesReceived)
+{
+	this->Internal->OemClientReadBuffer.resize(maxReplySize);
+
+	//Read and process messages until an image message is found
+	while (true)
+	{
+		LOG_TRACE("Before client read");
+		numBytesReceived = this->Internal->OemClient->Read(&(this->Internal->OemClientReadBuffer[0]), maxReplySize);
+		if (numBytesReceived == 0)
+		{
+			LOG_ERROR("Failed to read response from BK OEM interface");
+			return PLUS_FAIL;
+		}
+		LOG_TRACE("Number of bytes read: " << numBytesReceived);
+		
+		std::istringstream replyStream(this->ReadBufferIntoString());
+
+		std::string messageString;
+		std::getline(replyStream, messageString, ' ');
+
+		std::istringstream messageStream(messageString);
+		std::string messageType;
+		std::string messageName;
+		std::string messageSubtype;//Typically A or B (view A or B on the scanner)
+		std::getline(messageStream, messageType, ':');
+		std::getline(messageStream, messageName, ':');
+		std::getline(messageStream, messageSubtype, ':');
+
+		if (messageString.compare("DATA:CAPTURE_IMAGE") == 0)
+		{
+			return PLUS_SUCCESS;
+		}
+		else if (messageString.compare("DATA:GRAB_FRAME") == 0)
+		{
+			return PLUS_SUCCESS;
+		}
+		//Handle both replies to queries and subscribed data
+		else if ((messageType.compare("DATA") == 0) || (messageType.compare("SDATA") == 0))
+		{
+			if (messageName.compare("US_WIN_SIZE") == 0)
+			{
+				this->ParseImageSize();
+			}
+			else if ((messageName.compare("B_GEOMETRY_SCANAREA") == 0) && (messageSubtype.compare("A") == 0))
+			{
+				this->ParseGeometryScanarea();
+			}
+			else if ((messageName.compare("B_GEOMETRY_PIXEL") == 0) && (messageSubtype.compare("A") == 0))
+			{
+				this->ParseGeometryPixel();
+			}
+			else if ((messageName.compare("B_GEOMETRY_TISSUE") == 0) && (messageSubtype.compare("A") == 0))
+			{
+				this->ParseGeometryTissue();
+			}
+			else if ((messageName.compare("B_GAIN") == 0) && (messageSubtype.compare("A") == 0))
+			{
+				this->ParseGain();
+			}
+			else if (messageName.compare("TRANSDUCER_LIST") == 0)
+			{
+				this->ParseTransducerList(replyStream);
+			}
+			else if ((messageName.compare("TRANSDUCER") == 0) && (messageSubtype.compare("A") == 0))
+			{
+				this->ParseTransducerData(replyStream);
+			}
+		}
+		else if ((messageString.compare("EVENT:TRANSDUCER_CONNECT") == 0)
+			|| (messageString.compare("EVENT:TRANSDUCER_DISCONNECT") == 0)
+			|| (messageString.compare("EVENT:TRANSDUCER_SELECTED") == 0) )
+		{
+			this->QueryTransducerList();//Need to query, as this can't be subscribed to
+			//this->QueryTransducer();//TODO: May not be needed if we subscribe to this?
+		}
+		else if (messageString.compare("EVENT:FREEZE") == 0)
+		{
+			LOG_DEBUG("Freeze");
+		}
+		else if (messageString.compare("EVENT:UNFREEZE") == 0)
+		{
+			LOG_DEBUG("Unfreeze");
+		}
+		else if (messageString.compare("ACK") == 0)
+		{
+			LOG_DEBUG("Acknowledge message received");
+		}
+		else
+		{
+			LOG_WARNING("Received unknown message from BK: " << messageString);
+		}
+	}
+
+	return PLUS_SUCCESS; //Should newer reach this
+}
+
 //-----------------------------------------------------------------------------
 // QUERY:US_WIN_SIZE;
 PlusStatus vtkPlusBkProFocusOemVideoSource::QueryImageSize()
 {
-  LOG_DEBUG("Get ultrasound image size from BKProFocusOem");
+	LOG_DEBUG("Get ultrasound image size from BKProFocusOem");
 
-  std::string query = "QUERY:US_WIN_SIZE;";
-  LOG_TRACE("Query from vtkPlusBkProFocusOemVideoSource: " << query);
-  size_t queryWrittenSize = this->Internal->OemClient->Write(query.c_str(), query.size());
-  if (queryWrittenSize != query.size() + 2) // OemClient->Write returns query.size()+2 on a successfully sent event (see #722)
-  {
-    LOG_ERROR("Failed to send query through BK OEM interface (" << query << ")" << queryWrittenSize << " vs " << query.size() << "+2");
-    return PLUS_FAIL;
-  }
+	std::string query = "QUERY:US_WIN_SIZE;";
+	LOG_TRACE("Query from vtkPlusBkProFocusOemVideoSource: " << query);
+	return SendQuery(query);
+}
 
+void vtkPlusBkProFocusOemVideoSource::ParseImageSize()
+{
   // Retrieve the "DATA:US_WIN_SIZE X,Y;"
-  size_t replyBytes = 32;
-  this->Internal->OemClientReadBuffer.resize(replyBytes);
-  size_t numBytesReceived = this->Internal->OemClient->Read(&(this->Internal->OemClientReadBuffer[0]), replyBytes);
-  if (numBytesReceived == 0)
-  {
-    LOG_ERROR("Failed to read response from BK OEM interface");
-    return PLUS_FAIL;
-  }
   sscanf(&(this->Internal->OemClientReadBuffer[0]), "DATA:US_WIN_SIZE %d,%d;", &this->UltrasoundWindowSize[0], &this->UltrasoundWindowSize[1]);
   LOG_TRACE("Ultrasound image size = " << this->UltrasoundWindowSize[0] << " x " << this->UltrasoundWindowSize[1]);
-
-  return PLUS_SUCCESS;
 }
 
 // QUERY:B_GEOMETRY_SCANAREA;
@@ -596,16 +638,16 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::QueryGeometryScanarea()
 	std::string query = "QUERY:B_GEOMETRY_SCANAREA:A;";
 	LOG_TRACE("Query from vtkPlusBkProFocusOemVideoSource: " << query);
 
-	size_t replyBytes = 200;
-	PlusStatus retval = SendReceiveQuery(query, replyBytes);
-
+	return SendQuery(query);
+}
+	
+void vtkPlusBkProFocusOemVideoSource::ParseGeometryScanarea()
+{
 	// Retrieve the "DATA:B_GEOMETRY_SCANAREA StartLineX(m),StartLineY(m),StartLineAngle(rad),StartDepth(m),StopLineX(m),StopLineY(m),StopLineAngle(rad),StopDepth(m);"
 	sscanf(&(this->Internal->OemClientReadBuffer[0]), "DATA:B_GEOMETRY_SCANAREA:A %lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf;",
 		&StartLineX_m, &StartLineY_m, &StartLineAngle_rad, &StartDepth_m, &StopLineX_m, &StopLineY_m, &StopLineAngle_rad, &StopDepth_m);
 	LOG_DEBUG("Ultrasound geometry. StartLineX_m: " << StartLineX_m << " StartLineY_m: " << StartLineY_m << " StartLineAngle_rad: " << StartLineAngle_rad <<
 		" StartDepth_m: " << StartDepth_m << " StopLineX_m: " << StopLineX_m << " StopLineY_m: " << StopLineY_m << " StopLineAngle_rad: " << StopLineAngle_rad << " StopDepth_m: " << StopDepth_m);
-
-	return retval;
 }
 
 //-----------------------------------------------------------------------------
@@ -615,15 +657,15 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::QueryGeometryPixel()
 	std::string query = "QUERY:B_GEOMETRY_PIXEL:A;";
 	LOG_TRACE("Query from vtkPlusBkProFocusOemVideoSource: " << query);
 
-	size_t replyBytes = 100;
-	PlusStatus retval = SendReceiveQuery(query, replyBytes);
+	return SendQuery(query);
+}
 
+void vtkPlusBkProFocusOemVideoSource::ParseGeometryPixel()
+{
 	// Retrieve the "DATA:B_GEOMETRY_PIXEL Left,Top,Right,Bottom;"
 	sscanf(&(this->Internal->OemClientReadBuffer[0]), "DATA:B_GEOMETRY_PIXEL:A %d,%d,%d,%d;",
 		&pixelLeft_pix, &pixelTop_pix, &pixelRight_pix, &pixelBottom_pix);
 	LOG_DEBUG("Ultrasound geometry. pixelLeft_pix: " << pixelLeft_pix << " pixelTop_pix: " << pixelTop_pix << " pixelRight_pix: " << pixelRight_pix << " pixelBottom_pix: " << pixelBottom_pix);
-
-	return retval;
 }
 
 //-----------------------------------------------------------------------------
@@ -633,14 +675,14 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::QueryGeometryTissue()
 	std::string query = "QUERY:B_GEOMETRY_TISSUE:A;";
 	LOG_TRACE("Query from vtkPlusBkProFocusOemVideoSource: " << query);
 
-	size_t replyBytes = 100;
-	PlusStatus retval = SendReceiveQuery(query, replyBytes);
+	return SendQuery(query);
+}
 
+void vtkPlusBkProFocusOemVideoSource::ParseGeometryTissue()
+{
 	sscanf(&(this->Internal->OemClientReadBuffer[0]), "DATA:B_GEOMETRY_TISSUE:A %lf,%lf,%lf,%lf;",
 		&tissueLeft_m, &tissueTop_m, &tissueRight_m, &tissueBottom_m);
 	LOG_DEBUG("Ultrasound geometry. tissueLeft_m: " << tissueLeft_m << " tissueTop_m: " << tissueTop_m << " tissueRight_m: " << tissueRight_m << " tissueBottom_m: " << tissueBottom_m);
-
-	return retval;
 }
 
 //-----------------------------------------------------------------------------
@@ -650,13 +692,13 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::QueryGain()
 	std::string query = "QUERY:B_GAIN:A;";
 	LOG_TRACE("Query from vtkPlusBkProFocusOemVideoSource: " << query);
 
-	size_t replyBytes = 100;
-	PlusStatus retval = SendReceiveQuery(query, replyBytes);
+	return SendQuery(query);
+}
 
+void vtkPlusBkProFocusOemVideoSource::ParseGain()
+{
 	sscanf(&(this->Internal->OemClientReadBuffer[0]), "DATA:B_GAIN:A %d;", &gain_percent);
 	LOG_TRACE("Ultrasound gain. gain_percent: " << gain_percent);
-
-	return retval;
 }
 
 
@@ -668,46 +710,32 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::QueryTransducerList()
 	std::string query = "QUERY:TRANSDUCER_LIST;";
 	LOG_TRACE("Query from vtkPlusBkProFocusOemVideoSource: " << query);
 
-	size_t replyBytes = 200;
-	PlusStatus retval = SendReceiveQuery(query, replyBytes);
-	
-	std::istringstream replyStream(this->ReadBufferIntoString());
-
-	std::string queryString;
-	std::getline(replyStream, queryString, ' ');
-
-	if (queryString.compare("DATA:TRANSDUCER_LIST") != 0)
-	{
-		LOG_ERROR("Query answer should be DATA:TRANSDUCER_LIST, but is: " << queryString);
-		retval = PLUS_FAIL;
-	}
-	else
-	{
-		std::string probeName;
-		std::string probeType;
-		//Port A
-		std::getline(replyStream, probeName, ',');
-		std::getline(replyStream, probeType, ',');
-		this->SetProbeTypeForPort("A", RemoveQuotationMarks(probeType));
-		//Port B
-		std::getline(replyStream, probeName, ',');
-		std::getline(replyStream, probeType, ',');
-		this->SetProbeTypeForPort("B", RemoveQuotationMarks(probeType));
-		//Port C
-		std::getline(replyStream, probeName, ',');
-		std::getline(replyStream, probeType, ',');
-		this->SetProbeTypeForPort("C", RemoveQuotationMarks(probeType));
-
-		//Port M
-		std::getline(replyStream, probeName, ',');
-		std::getline(replyStream, probeType, ',');
-		this->SetProbeTypeForPort("M", RemoveQuotationMarks(probeType));
-	}
-
-	return retval;
+	return SendQuery(query);
 }
 
-//Discards the ; at the end of the string
+void vtkPlusBkProFocusOemVideoSource::ParseTransducerList(std::istringstream &replyStream)
+{
+	std::string probeName;
+	std::string probeType;
+	//Port A
+	std::getline(replyStream, probeName, ',');
+	std::getline(replyStream, probeType, ',');
+	this->SetProbeTypeForPort("A", RemoveQuotationMarks(probeType));
+	//Port B
+	std::getline(replyStream, probeName, ',');
+	std::getline(replyStream, probeType, ',');
+	this->SetProbeTypeForPort("B", RemoveQuotationMarks(probeType));
+	//Port C
+	std::getline(replyStream, probeName, ',');
+	std::getline(replyStream, probeType, ',');
+	this->SetProbeTypeForPort("C", RemoveQuotationMarks(probeType));
+
+	//Port M
+	std::getline(replyStream, probeName, ',');
+	std::getline(replyStream, probeType, ',');
+	this->SetProbeTypeForPort("M", RemoveQuotationMarks(probeType));
+}
+
 std::string vtkPlusBkProFocusOemVideoSource::ReadBufferIntoString()
 {
 	std::string retval;
@@ -726,7 +754,7 @@ std::string vtkPlusBkProFocusOemVideoSource::RemoveQuotationMarks(std::string in
 	std::string retval;
 	std::istringstream inStream(inString);
 	std::getline(inStream, retval, '"');//Removes first "
-	std::getline(inStream, retval, '"');
+	std::getline(inStream, retval, '"');//Read characters until next " is found
 	return retval;
 }
 
@@ -752,72 +780,43 @@ void vtkPlusBkProFocusOemVideoSource::SetProbeTypeForPort(std::string port, std:
 }
 
 //-----------------------------------------------------------------------------
-// QUERY:TRANSDUCER;
+// QUERY:TRANSDUCER:A;
 // Get transducer that is used to create view A
 PlusStatus vtkPlusBkProFocusOemVideoSource::QueryTransducer()
 {
 	std::string query = "QUERY:TRANSDUCER:A;";
 	LOG_TRACE("Query from vtkPlusBkProFocusOemVideoSource: " << query);
 
-	size_t replyBytes = 100;
-	if (SendReceiveQuery(query, replyBytes) != PLUS_SUCCESS)
-	{
-		return PLUS_FAIL;
-	}
-
-	return this->ParseTransducerData();
+	return SendQuery(query);
 }
 
-PlusStatus vtkPlusBkProFocusOemVideoSource::ParseTransducerData()
+void vtkPlusBkProFocusOemVideoSource::ParseTransducerData(std::istringstream &replyStream)
 {
-	std::istringstream replyStream(this->ReadBufferIntoString());
-
-	std::string queryString;
-	std::getline(replyStream, queryString, ' ');
-	
-	PlusStatus retval = PLUS_SUCCESS;
-
-	if (queryString.compare("DATA:TRANSDUCER:A") != 0)
-	{
-		LOG_ERROR("Query answer should be DATA:TRANSDUCER:A, but is: " << queryString);
-		retval = PLUS_FAIL;
-	}
-	else
-	{
-		std::string probePortString;
-		std::string probeName;
-		std::getline(replyStream, probePortString, ',');
-		std::getline(replyStream, probeName, ',');
-		probePort = this->RemoveQuotationMarks(probePortString);
-	}
-	return retval;
+	std::string probePortString;
+	std::string probeName;
+	std::getline(replyStream, probePortString, ',');
+	std::getline(replyStream, probeName, ',');
+	probePort = this->RemoveQuotationMarks(probePortString);
 }
 
-//-----------------------------------------------------------------------------
-// QUERY:TRANSDUCER:A;
-// Get which tranducer is used in the selecetd view
 
 //-----------------------------------------------------------------------------
 // CONFIG:DATA:SUBSCRIBE;
-
-//Receive messages example:
-// SDATA:B_GAIN:A
-/*PlusStatus vtkPlusBkProFocusOemVideoSource::Subscribe()
+PlusStatus vtkPlusBkProFocusOemVideoSource::SubscribeToParameterChanges()
 {
 	std::string query = "CONFIG:DATA:SUBSCRIBE ";
-	query += "\"B_GEOMETRY_SCANAREA\"";
+	query += "\"US_WIN_SIZE\"";
+	query += ",\"B_GEOMETRY_SCANAREA\"";
+	query += ",\"B_GEOMETRY_PIXEL\"";
+	query += ",\"B_GEOMETRY_TISSUE\"";
 	query += ",\"B_GAIN\"";
+	query += ",\"TRANSDUCER\"";
 	query += ";";
 	LOG_TRACE("Query from vtkPlusBkProFocusOemVideoSource: " << query);
 
-	size_t replyBytes = 100;
-	PlusStatus retval = SendReceiveQuery(query, replyBytes);
+	return SendQuery(query);
+}
 
-	//sscanf(&(this->Internal->OemClientReadBuffer[0]), "SDATA:B_GAIN:A %d;", &gain_percent);
-	//LOG_TRACE("Ultrasound gain. gain_percent: " << gain_percent);
-
-	return retval;
-}*/
 
 //-----------------------------------------------------------------------------
 // QUERY:B_TRANS_IMAGE_CALIB; //Get only zeroes as return values
@@ -854,20 +853,25 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::QuerySagImageCalibration()
 }*/
 
 //-----------------------------------------------------------------------------
+// CONFIG:EVENTS;
+PlusStatus vtkPlusBkProFocusOemVideoSource::ConfigEventsOn()
+{
+	std::string query = "CONFIG:EVENTS 1;";
+	LOG_TRACE("Command from vtkPlusBkProFocusOemVideoSource: " << query);
+	return SendQuery(query);
+}
+
+//-----------------------------------------------------------------------------
 // COMMAND:P_MODE;
 PlusStatus vtkPlusBkProFocusOemVideoSource::CommandPowerDopplerOn()
 {
 	std::string query = "COMMAND:P_MODE: \"ON\";";
 	LOG_TRACE("Command from vtkPlusBkProFocusOemVideoSource: " << query);
-
-	size_t replyBytes = 100;
-	PlusStatus retval = SendReceiveQuery(query, replyBytes);
-
-	return retval;
+	return SendQuery(query);
 }
 
 //-----------------------------------------------------------------------------
-PlusStatus vtkPlusBkProFocusOemVideoSource::SendReceiveQuery(std::string query, size_t replyBytes)
+/*PlusStatus vtkPlusBkProFocusOemVideoSource::SendReceiveQuery(std::string query, size_t replyBytes)
 {
 	size_t queryWrittenSize = this->Internal->OemClient->Write(query.c_str(), query.size());
 	if (queryWrittenSize != query.size() + 2) // OemClient->Write returns query.size()+2 on a successfully sent event (see #722)
@@ -881,6 +885,18 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::SendReceiveQuery(std::string query, 
 	if (numBytesReceived == 0)
 	{
 		LOG_ERROR("Failed to read response from BK OEM interface");
+		return PLUS_FAIL;
+	}
+	return PLUS_SUCCESS;
+}*/
+
+//-----------------------------------------------------------------------------
+PlusStatus vtkPlusBkProFocusOemVideoSource::SendQuery(std::string query)
+{
+	size_t queryWrittenSize = this->Internal->OemClient->Write(query.c_str(), query.size());
+	if (queryWrittenSize != query.size() + 2) // OemClient->Write returns query.size()+2 on a successfully sent event (see #722)
+	{
+		LOG_ERROR("Failed to send query through BK OEM interface (" << query << ")" << queryWrittenSize << " vs " << query.size() << "+2");
 		return PLUS_FAIL;
 	}
 	return PLUS_SUCCESS;
@@ -1234,6 +1250,8 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::UpdateScannerParameters()
 	//this->CurrentImagingParameters->SetValue<int>("testparemeter", test);
 
 	
+	//TODO: Save all parameters in this->CurrentImagingParameters?
+
 	if (this->CurrentImagingParameters->SetDepthMm(this->CalculateDepthMm()) != PLUS_SUCCESS)
 	{
 		return PLUS_FAIL;
@@ -1389,13 +1407,14 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::ProcessParameterValues(/*std::map<st
 //----------------------------------------------------------------------------
 PlusStatus vtkPlusBkProFocusOemVideoSource::AddParametersToFrameFields()
 {
-	if (this->UpdateScannerParameters() != PLUS_SUCCESS)
+	//Disable for now to test subscribe
+	/*if (this->UpdateScannerParameters() != PLUS_SUCCESS)
 	{
 		//Disable for testing
 #ifndef OFFLINE_TESTING
 		return PLUS_FAIL;
 #endif
-	}
+	}*/
 
 	vtkPlusUsDevice::InternalUpdate();// Move to beginning of vtkPlusBkProFocusOemVideoSource::InternalUpdate()?
 

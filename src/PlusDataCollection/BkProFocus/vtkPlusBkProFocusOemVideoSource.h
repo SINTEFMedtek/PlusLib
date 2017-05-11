@@ -131,6 +131,9 @@ protected:
 
   /*! The internal function which actually does the grab.  */
   PlusStatus InternalUpdate();
+
+  /*! Process all received messages until an image message is read. */
+  PlusStatus ProcessMessagesAndReadNextImage(int maxReplySize, size_t &numBytesReceived);
   
   /*! The internal function which ...  */
   PlusStatus QueryImageSize();
@@ -142,12 +145,20 @@ protected:
   PlusStatus QueryGain();
   PlusStatus QueryTransducerList();
   PlusStatus QueryTransducer();
+  
+  void ParseImageSize();
+  void ParseGeometryScanarea();
+  void ParseGeometryPixel();
+  void ParseGeometryTissue();
+  void ParseGain();
+  void ParseTransducerList(std::istringstream &replyStream);
+  void ParseTransducerData(std::istringstream &replyStream);
 
-
-  PlusStatus ParseTransducerData();
-
+  PlusStatus SubscribeToParameterChanges();
+  PlusStatus ConfigEventsOn();
   PlusStatus CommandPowerDopplerOn();
-  PlusStatus SendReceiveQuery(std::string query, size_t replyBytes);
+  //PlusStatus SendReceiveQuery(std::string query, size_t replyBytes);
+  PlusStatus SendQuery(std::string query);
 
   PlusStatus GetFullIniFilePath(std::string &fullPath);
 
@@ -183,7 +194,9 @@ protected:
   PlusStatus AddParameterReplies();
   PlusStatus AddParametersToFrameFields();
 
+  /*! Read theOemClientReadBuffer into a string. Discards the ; at the end of the string */
   std::string ReadBufferIntoString();
+  /*! Remove doube quotes from a string. E.g. "testString" -> testString */
   std::string RemoveQuotationMarks(std::string inString);
   void SetProbeTypeForPort(std::string port, std::string probeTypeString);
 
