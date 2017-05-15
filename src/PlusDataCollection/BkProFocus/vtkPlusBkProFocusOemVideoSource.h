@@ -134,6 +134,13 @@ protected:
 
   /*! Process all received messages until an image message is read. */
   PlusStatus ProcessMessagesAndReadNextImage(int maxReplySize, size_t &numBytesReceived);
+
+  PlusStatus ReadNextMessage();
+  std::vector<char> removeSpecialCharacters(std::vector<char> inMessage);
+
+  //PlusStatus SendReceiveQuery(std::string query, size_t replyBytes);
+  PlusStatus SendQuery(std::string query);
+  std::string AddSpecialCharacters(std::string query);
   
   /*! The internal function which ...  */
   PlusStatus QueryImageSize();
@@ -157,8 +164,6 @@ protected:
   PlusStatus SubscribeToParameterChanges();
   PlusStatus ConfigEventsOn();
   PlusStatus CommandPowerDopplerOn();
-  //PlusStatus SendReceiveQuery(std::string query, size_t replyBytes);
-  PlusStatus SendQuery(std::string query);
 
   PlusStatus GetFullIniFilePath(std::string &fullPath);
 
@@ -212,6 +217,14 @@ protected:
 private:
   vtkPlusBkProFocusOemVideoSource(const vtkPlusBkProFocusOemVideoSource&);  // Not implemented.
   void operator=(const vtkPlusBkProFocusOemVideoSource&);  // Not implemented.
+
+  //Special characters used in communication protocol
+  enum
+  {
+	  SOH = 1,  ///> Start of header.
+	  EOT = 4,  ///> End of header.
+	  ESC = 27, ///> Escape, used for escaping the other special characters. The character itself is inverted.
+  };
 };
 
 #endif

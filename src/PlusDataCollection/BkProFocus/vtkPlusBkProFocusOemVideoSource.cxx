@@ -8,7 +8,7 @@ See License.txt for details.
 
 // Define OFFLINE_TESTING to read image input from file instead of reading from the actual hardware device.
 // This is useful only for testing and debugging without having access to an actual BK scanner.
-#define OFFLINE_TESTING
+//#define OFFLINE_TESTING
 //static const char OFFLINE_TESTING_FILENAME[] = "c:\\Users\\lasso\\Downloads\\bktest.png";
 static const char OFFLINE_TESTING_FILENAME[] = "c:\\dev\\bktest.png";
 
@@ -22,6 +22,7 @@ static const char OFFLINE_TESTING_FILENAME[] = "c:\\dev\\bktest.png";
 
 #include "vtkPlusChannel.h"
 #include "vtkPlusDataSource.h"
+#include "vtkClientSocket.h"
 #include "PixelCodec.h"
 
 #include <stdlib.h>
@@ -32,11 +33,8 @@ static const char OFFLINE_TESTING_FILENAME[] = "c:\\dev\\bktest.png";
 #include <string>
 #include "stdint.h"
 
+//TODO: Remove ParamConnectionSettings
 #include "ParamConnectionSettings.h"
-#include "ParamSyncConnection.h"
-#include "TCPClient.h"
-#include "WSAIF.h"
-#include "OemParams.h"
 
 #include "UseCaseParser.h"
 #include "UseCaseStructs.h"
@@ -82,13 +80,8 @@ public:
   vtkPlusChannel* Channel;
 
   ParamConnectionSettings BKparamSettings;
-  WSAIF wsaif;
-  TcpClient* OemClient;
-  TcpClient* ToolboxClient;
-  ParamSyncConnection *ParamSync;
-
-  // Buffer to hold the query reply, it's a member variable to avoid memory allocation at each frame receiving
-  std::vector<char> OemClientReadBuffer;
+  vtkSmartPointer<vtkClientSocket> VtkSocket;
+  std::vector<char> OemMessage;
 
   // Image buffer to hold the decoded image frames, it's a member variable to avoid memory allocation at each frame receiving
   vtkImageData* DecodedImageFrame;
@@ -101,9 +94,6 @@ public:
   vtkPlusBkProFocusOemVideoSource::vtkInternal::vtkInternal(vtkPlusBkProFocusOemVideoSource* external)
     : External(external)
     , Channel(NULL)
-    , OemClient(NULL)
-    , ToolboxClient(NULL)
-    , ParamSync(NULL)
   {
     this->DecodedImageFrame = vtkImageData::New();
 
@@ -112,12 +102,6 @@ public:
   virtual vtkPlusBkProFocusOemVideoSource::vtkInternal::~vtkInternal()
   {
     this->Channel = NULL;
-    delete this->OemClient;
-    this->OemClient = NULL;
-    delete this->ToolboxClient;
-    this->ToolboxClient = NULL;
-    delete this->ParamSync;
-    this->ParamSync = NULL;
     this->DecodedImageFrame->Delete();
     this->DecodedImageFrame = NULL;
     this->External = NULL;
@@ -216,20 +200,11 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::InternalConnect()
 
   // Clear buffer on connect because the new frames that we will acquire might have a different size 
   this->Internal->Channel->Clear();
-
-  delete this->Internal->OemClient;
-  this->Internal->OemClient = NULL;
-  delete this->Internal->ToolboxClient;
-  this->Internal->ToolboxClient = NULL;
-  delete this->Internal->ParamSync;
-  this->Internal->ParamSync = NULL;
-  this->Internal->OemClient = new TcpClient(&(this->Internal->wsaif), 8 * 1024 * 1024, this->Internal->BKparamSettings.GetOemPort(), this->Internal->BKparamSettings.GetScannerAddress());
-  this->Internal->ToolboxClient = new TcpClient(&(this->Internal->wsaif), 8 * 1024 * 1024, this->Internal->BKparamSettings.GetToolboxPort(), this->Internal->BKparamSettings.GetScannerAddress());
-  this->Internal->ParamSync = new ParamSyncConnection(this->Internal->OemClient, this->Internal->ToolboxClient);
+  this->Internal->VtkSocket = vtkSmartPointer<vtkClientSocket>::New();
 
 #ifndef OFFLINE_TESTING
   LOG_DEBUG("Connecting to BK scanner");
-  bool connected = this->Internal->ParamSync->ConnectOEMInterface();
+  bool connected = this->Internal->VtkSocket->ConnectToServer(this->Internal->BKparamSettings.GetScannerAddress(), this->Internal->BKparamSettings.GetOemPort());
   if (!connected)
   {
     LOG_ERROR("Could not connect to BKProFocusOem:"
@@ -246,6 +221,7 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::InternalConnect()
 		  && this->ConfigEventsOn()
 		  && this->SubscribeToParameterChanges()))
 	  {
+		  LOG_ERROR("Cound not init BK scanner");
 		  return PLUS_FAIL;
 	  }
 
@@ -254,6 +230,7 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::InternalConnect()
     LOG_TRACE("Start data streaming. Query: " << query);
 	if (!SendQuery(query))
 	{
+		LOG_ERROR("Cound not start data streaming");
 		return PLUS_FAIL;
 	}
 
@@ -261,6 +238,7 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::InternalConnect()
 	size_t numBytesReceived = 0;
 	if (!ProcessMessagesAndReadNextImage(500, numBytesReceived))
 	{
+		LOG_ERROR("Cound not process inital parameter messages");
 		return PLUS_FAIL;
 	}
   }
@@ -280,31 +258,23 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::InternalDisconnect()
 #ifndef OFFLINE_TESTING
   std::string query = "QUERY:GRAB_FRAME \"OFF\";";
   LOG_TRACE("Query from vtkPlusBkProFocusOemVideoSource: " << query);
-  if (!SendQuery(query)
+  if (!SendQuery(query))
   {
 	  return PLUS_FAIL;
   }
 
   // Retrieve the "ACK;"
-  this->Internal->OemClientReadBuffer.resize(8);
-  LOG_TRACE("Start data streaming");
-  size_t numBytesReceived = this->Internal->OemClient->Read(&(this->Internal->OemClientReadBuffer[0]), 8);
-  if (numBytesReceived == 0)
+  if(!this->ReadNextMessage())
   {
-    LOG_ERROR("Failed to read response from BK OEM interface");
-    return PLUS_FAIL;
+	  LOG_ERROR("Failed to read response from BK OEM interface");
+	  return PLUS_FAIL;
   }
 #endif
 
   this->StopRecording();
-
-  delete this->Internal->ParamSync;
-  this->Internal->ParamSync = NULL;
-
-  delete this->Internal->OemClient;
-  this->Internal->OemClient = NULL;
-  delete this->Internal->ToolboxClient;
-  this->Internal->ToolboxClient = NULL;
+  
+  if (this->Internal->VtkSocket->GetConnected())
+	  this->Internal->VtkSocket->CloseSocket();
 
   return PLUS_SUCCESS;
 
@@ -370,8 +340,8 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::InternalUpdate()
   unsigned int uncompressedPixelBufferSize = 0;
   int numBytesProcessed = 0;
 #ifndef OFFLINE_TESTING
-  try
-  {
+//  try
+//  {
     // Set a buffer size that is likely to be able to hold a complete image
     int maxReplySize = 8 * 1024 * 1024;
 
@@ -396,10 +366,10 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::InternalUpdate()
 	}
 	
     // First detect the #
-    for (numBytesProcessed = 0; this->Internal->OemClientReadBuffer[numBytesProcessed] != '#' && numBytesProcessed < numBytesReceived; numBytesProcessed++);
+	for (numBytesProcessed = 0; this->Internal->OemMessage[numBytesProcessed] != '#' && numBytesProcessed < numBytesReceived; numBytesProcessed++);
     numBytesProcessed++;
 
-    int numChars = (int)this->Internal->OemClientReadBuffer[numBytesProcessed] - (int)('0');
+	int numChars = (int)this->Internal->OemMessage[numBytesProcessed] - (int)('0');
     numBytesProcessed++;
     LOG_TRACE("Number of bytes in the image size: " << numChars); // 7 or 6
     if (numChars == 0)
@@ -410,11 +380,11 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::InternalUpdate()
 
     for (int k = 0; k < numChars; k++, numBytesProcessed++)
     {
-      uncompressedPixelBufferSize = uncompressedPixelBufferSize * 10 + ((int)this->Internal->OemClientReadBuffer[numBytesProcessed] - '0');
+	  uncompressedPixelBufferSize = uncompressedPixelBufferSize * 10 + ((int)this->Internal->OemMessage[numBytesProcessed] - '0');
     }
     LOG_TRACE("uncompressedPixelBufferSize = " << uncompressedPixelBufferSize);
 
-    uncompressedPixelBuffer = (unsigned char*)&(this->Internal->OemClientReadBuffer[numBytesProcessed]);
+	uncompressedPixelBuffer = (unsigned char*)&(this->Internal->OemMessage[numBytesProcessed]);
 
     if (this->ContinuousStreamingEnabled)
     {
@@ -422,18 +392,18 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::InternalUpdate()
       char timeStamp[TIMESTAMP_SIZE];
       for (int k = 0; k < TIMESTAMP_SIZE; k++, numBytesProcessed++)
       {
-        timeStamp[k] = this->Internal->OemClientReadBuffer[numBytesProcessed];
+		timeStamp[k] = this->Internal->OemMessage[numBytesProcessed];
       }
       // Seems this is NOT correct, but the format is NOT described in the manual
       unsigned int _timestamp = *(int*)timeStamp;
       LOG_TRACE("Image timestamp = " << static_cast<std::ostringstream*>(&(std::ostringstream() << _timestamp))->str());
     }
-  }
+/*  }
   catch (TcpClientWaitException e)
   {
     LOG_ERROR("Communication error on the BK OEM interface (TcpClientWaitException: " << e.Message << ")")
       return PLUS_FAIL;
-  }
+  }*/
 
 #endif
 
@@ -455,13 +425,13 @@ fclose(f);
     {
       // we received color image, convert to grayscale
       PlusStatus status = PixelCodec::ConvertToGray(BI_RGB, this->UltrasoundWindowSize[0], this->UltrasoundWindowSize[1],
-        (unsigned char*)&(this->Internal->OemClientReadBuffer[numBytesProcessed]),
+        (unsigned char*)&(this->Internal->OemMessage[numBytesProcessed]),
         (unsigned char*)this->Internal->DecodedImageFrame->GetScalarPointer());
     }
     else
     {
       std::memcpy(this->Internal->DecodedImageFrame->GetScalarPointer(),
-        (void*)&(this->Internal->OemClientReadBuffer[numBytesProcessed]),
+        (void*)&(this->Internal->OemMessage[numBytesProcessed]),
         uncompressedPixelBufferSize);
       LOG_TRACE(uncompressedPixelBufferSize << " bytes copied, start at " << numBytesProcessed); // 29
     }
@@ -517,21 +487,21 @@ fclose(f);
 //----------------------------------------------------------------------------
 PlusStatus vtkPlusBkProFocusOemVideoSource::ProcessMessagesAndReadNextImage(int maxReplySize, size_t &numBytesReceived)
 {
-	this->Internal->OemClientReadBuffer.resize(maxReplySize);
+	LOG_DEBUG("ProcessMessagesAndReadNextImage");
+	//this->Internal->OemClientReadBuffer.resize(maxReplySize);
 
 	//Read and process messages until an image message is found
 	while (true)
 	{
 		LOG_TRACE("Before client read");
-		numBytesReceived = this->Internal->OemClient->Read(&(this->Internal->OemClientReadBuffer[0]), maxReplySize);
-		if (numBytesReceived == 0)
+		if(!this->ReadNextMessage())
 		{
 			LOG_ERROR("Failed to read response from BK OEM interface");
 			return PLUS_FAIL;
 		}
-		LOG_TRACE("Number of bytes read: " << numBytesReceived);
 		
-		std::istringstream replyStream(this->ReadBufferIntoString());
+		std::string fullMessage = this->ReadBufferIntoString();
+		std::istringstream replyStream(fullMessage);
 
 		std::string messageString;
 		std::getline(replyStream, messageString, ' ');
@@ -543,6 +513,8 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::ProcessMessagesAndReadNextImage(int 
 		std::getline(messageStream, messageType, ':');
 		std::getline(messageStream, messageName, ':');
 		std::getline(messageStream, messageSubtype, ':');
+
+		LOG_DEBUG("Process message from BK: " << fullMessage);
 
 		if (messageString.compare("DATA:CAPTURE_IMAGE") == 0)
 		{
@@ -612,6 +584,45 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::ProcessMessagesAndReadNextImage(int 
 	return PLUS_SUCCESS; //Should newer reach this
 }
 
+PlusStatus vtkPlusBkProFocusOemVideoSource::ReadNextMessage()
+{
+	std::vector<char> rawMessage;
+	char character(0);
+	unsigned totalBytes = 0;
+	int receivedBytes = 1;
+	while (character != EOT && receivedBytes == 1)
+	{
+		receivedBytes = this->Internal->VtkSocket->Receive(&character, 1);
+		rawMessage.push_back(character);
+		totalBytes++;
+	}
+	this->Internal->OemMessage = removeSpecialCharacters(rawMessage);
+
+	if (receivedBytes != 1)
+		return PLUS_FAIL;
+	else
+		return PLUS_SUCCESS;
+}
+
+std::vector<char> vtkPlusBkProFocusOemVideoSource::removeSpecialCharacters(std::vector<char> inMessage)
+{
+	std::vector<char> retval;
+	int inPos = 1;//Skip starting character SOH
+	while (inPos < inMessage.size() - 1)//Skip ending character EOT
+	{
+		if ((inMessage[inPos]) != ESC)
+		{
+			retval.push_back(inMessage[inPos++]);
+		}
+		else
+		{
+			inPos++;
+			retval.push_back(~inMessage[inPos++]);//Character after ESC is inverted
+		}
+	}
+	return retval;
+}
+
 //-----------------------------------------------------------------------------
 // QUERY:US_WIN_SIZE;
 PlusStatus vtkPlusBkProFocusOemVideoSource::QueryImageSize()
@@ -626,7 +637,7 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::QueryImageSize()
 void vtkPlusBkProFocusOemVideoSource::ParseImageSize()
 {
   // Retrieve the "DATA:US_WIN_SIZE X,Y;"
-  sscanf(&(this->Internal->OemClientReadBuffer[0]), "DATA:US_WIN_SIZE %d,%d;", &this->UltrasoundWindowSize[0], &this->UltrasoundWindowSize[1]);
+  sscanf(&(this->Internal->OemMessage[0]), "DATA:US_WIN_SIZE %d,%d;", &this->UltrasoundWindowSize[0], &this->UltrasoundWindowSize[1]);
   LOG_TRACE("Ultrasound image size = " << this->UltrasoundWindowSize[0] << " x " << this->UltrasoundWindowSize[1]);
 }
 
@@ -644,7 +655,7 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::QueryGeometryScanarea()
 void vtkPlusBkProFocusOemVideoSource::ParseGeometryScanarea()
 {
 	// Retrieve the "DATA:B_GEOMETRY_SCANAREA StartLineX(m),StartLineY(m),StartLineAngle(rad),StartDepth(m),StopLineX(m),StopLineY(m),StopLineAngle(rad),StopDepth(m);"
-	sscanf(&(this->Internal->OemClientReadBuffer[0]), "DATA:B_GEOMETRY_SCANAREA:A %lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf;",
+	sscanf(&(this->Internal->OemMessage[0]), "DATA:B_GEOMETRY_SCANAREA:A %lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf;",
 		&StartLineX_m, &StartLineY_m, &StartLineAngle_rad, &StartDepth_m, &StopLineX_m, &StopLineY_m, &StopLineAngle_rad, &StopDepth_m);
 	LOG_DEBUG("Ultrasound geometry. StartLineX_m: " << StartLineX_m << " StartLineY_m: " << StartLineY_m << " StartLineAngle_rad: " << StartLineAngle_rad <<
 		" StartDepth_m: " << StartDepth_m << " StopLineX_m: " << StopLineX_m << " StopLineY_m: " << StopLineY_m << " StopLineAngle_rad: " << StopLineAngle_rad << " StopDepth_m: " << StopDepth_m);
@@ -663,7 +674,7 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::QueryGeometryPixel()
 void vtkPlusBkProFocusOemVideoSource::ParseGeometryPixel()
 {
 	// Retrieve the "DATA:B_GEOMETRY_PIXEL Left,Top,Right,Bottom;"
-	sscanf(&(this->Internal->OemClientReadBuffer[0]), "DATA:B_GEOMETRY_PIXEL:A %d,%d,%d,%d;",
+	sscanf(&(this->Internal->OemMessage[0]), "DATA:B_GEOMETRY_PIXEL:A %d,%d,%d,%d;",
 		&pixelLeft_pix, &pixelTop_pix, &pixelRight_pix, &pixelBottom_pix);
 	LOG_DEBUG("Ultrasound geometry. pixelLeft_pix: " << pixelLeft_pix << " pixelTop_pix: " << pixelTop_pix << " pixelRight_pix: " << pixelRight_pix << " pixelBottom_pix: " << pixelBottom_pix);
 }
@@ -680,7 +691,7 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::QueryGeometryTissue()
 
 void vtkPlusBkProFocusOemVideoSource::ParseGeometryTissue()
 {
-	sscanf(&(this->Internal->OemClientReadBuffer[0]), "DATA:B_GEOMETRY_TISSUE:A %lf,%lf,%lf,%lf;",
+	sscanf(&(this->Internal->OemMessage[0]), "DATA:B_GEOMETRY_TISSUE:A %lf,%lf,%lf,%lf;",
 		&tissueLeft_m, &tissueTop_m, &tissueRight_m, &tissueBottom_m);
 	LOG_DEBUG("Ultrasound geometry. tissueLeft_m: " << tissueLeft_m << " tissueTop_m: " << tissueTop_m << " tissueRight_m: " << tissueRight_m << " tissueBottom_m: " << tissueBottom_m);
 }
@@ -697,7 +708,7 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::QueryGain()
 
 void vtkPlusBkProFocusOemVideoSource::ParseGain()
 {
-	sscanf(&(this->Internal->OemClientReadBuffer[0]), "DATA:B_GAIN:A %d;", &gain_percent);
+	sscanf(&(this->Internal->OemMessage[0]), "DATA:B_GAIN:A %d;", &gain_percent);
 	LOG_TRACE("Ultrasound gain. gain_percent: " << gain_percent);
 }
 
@@ -738,14 +749,14 @@ void vtkPlusBkProFocusOemVideoSource::ParseTransducerList(std::istringstream &re
 
 std::string vtkPlusBkProFocusOemVideoSource::ReadBufferIntoString()
 {
-	std::string retval;
-	bool stop = false;
+	std::string retval(this->Internal->OemMessage.begin(), this->Internal->OemMessage.end());
+	/*bool stop = false;
 	int readPos = 0;
 
-	while (readPos < this->Internal->OemClientReadBuffer.size() && this->Internal->OemClientReadBuffer[readPos] != ';')
+	while (readPos < this->Internal->OemMessage.size() && this->Internal->OemMessage[readPos] != ';')
 	{
-		retval += this->Internal->OemClientReadBuffer[readPos++];
-	}
+		retval += this->Internal->OemMessage[readPos++];
+	}*/
 	return retval;
 }
 
@@ -893,13 +904,32 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::CommandPowerDopplerOn()
 //-----------------------------------------------------------------------------
 PlusStatus vtkPlusBkProFocusOemVideoSource::SendQuery(std::string query)
 {
-	size_t queryWrittenSize = this->Internal->OemClient->Write(query.c_str(), query.size());
-	if (queryWrittenSize != query.size() + 2) // OemClient->Write returns query.size()+2 on a successfully sent event (see #722)
+	std::string codedQuery = this->AddSpecialCharacters(query);
+	
+	if (!this->Internal->VtkSocket->Send(codedQuery.c_str(), codedQuery.size()))
 	{
-		LOG_ERROR("Failed to send query through BK OEM interface (" << query << ")" << queryWrittenSize << " vs " << query.size() << "+2");
 		return PLUS_FAIL;
 	}
 	return PLUS_SUCCESS;
+}
+
+std::string vtkPlusBkProFocusOemVideoSource::AddSpecialCharacters(std::string query)
+{
+	std::string retval;
+	const char special[] = { SOH, EOT, ESC, 0 }; // 0 is not special, it is an indicator for end of string
+	retval += SOH; //Add start character
+	for (int i = 0; i < query.size(); i++)
+	{
+		char ch = query[i];
+		if (NULL != strchr(special, ch))
+		{
+			retval += ESC; //Escape special character
+			ch = ~ch; //Invert special character
+		}
+		retval += ch;
+	}
+	retval += EOT; //Add end character
+	return retval;
 }
 
 //-----------------------------------------------------------------------------
