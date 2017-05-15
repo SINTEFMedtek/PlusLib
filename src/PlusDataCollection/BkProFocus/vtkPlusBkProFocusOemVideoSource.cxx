@@ -8,9 +8,9 @@ See License.txt for details.
 
 // Define OFFLINE_TESTING to read image input from file instead of reading from the actual hardware device.
 // This is useful only for testing and debugging without having access to an actual BK scanner.
-//#define OFFLINE_TESTING
+#define OFFLINE_TESTING
 //static const char OFFLINE_TESTING_FILENAME[] = "c:\\Users\\lasso\\Downloads\\bktest.png";
-static const char OFFLINE_TESTING_FILENAME[] = "c:\\dev\\bktest.png";
+static const char OFFLINE_TESTING_FILENAME[] = "c:\\dev\\bktest_color.png";
 
 #include "PlusConfigure.h"
 #include "vtkPlusBkProFocusOemVideoSource.h"
@@ -118,6 +118,7 @@ vtkPlusBkProFocusOemVideoSource::vtkPlusBkProFocusOemVideoSource()
   this->IniFileName = NULL;
 
   this->ContinuousStreamingEnabled = false;
+  this->ColorEnabled = false;
   this->UltrasoundWindowSize[0] = 0;
   this->UltrasoundWindowSize[1] = 0;
   this->StartLineX_m = 0;
@@ -174,29 +175,29 @@ void vtkPlusBkProFocusOemVideoSource::PrintSelf(ostream& os, vtkIndent indent)
 //----------------------------------------------------------------------------
 PlusStatus vtkPlusBkProFocusOemVideoSource::InternalConnect()
 {
-  LOG_TRACE("vtkPlusBkProFocusOemVideoSource::InternalConnect");
+	LOG_TRACE("vtkPlusBkProFocusOemVideoSource::InternalConnect");
 
-  if (this->Internal->Channel == NULL)
-  {
-    if (this->OutputChannels.empty())
-    {
-      LOG_ERROR("Cannot connect: no output channel is specified for device " << this->GetDeviceId());
-      return PLUS_FAIL;
-    }
-    this->Internal->Channel = this->OutputChannels[0];
-  }
+	if (this->Internal->Channel == NULL)
+	{
+		if (this->OutputChannels.empty())
+		{
+			LOG_ERROR("Cannot connect: no output channel is specified for device " << this->GetDeviceId());
+			return PLUS_FAIL;
+		}
+		this->Internal->Channel = this->OutputChannels[0];
+	}
 
-  std::string iniFilePath;
-  GetFullIniFilePath(iniFilePath);
-  if (!this->Internal->BKparamSettings.LoadSettingsFromIniFile(iniFilePath.c_str()))
-  {
-    LOG_ERROR("Could not load BK parameter settings from file: " << iniFilePath.c_str());
-    return PLUS_FAIL;
-  }
+	std::string iniFilePath;
+	GetFullIniFilePath(iniFilePath);
+	if (!this->Internal->BKparamSettings.LoadSettingsFromIniFile(iniFilePath.c_str()))
+	{
+		LOG_ERROR("Could not load BK parameter settings from file: " << iniFilePath.c_str());
+		return PLUS_FAIL;
+	}
 
-  LOG_DEBUG("BK scanner address: " << this->Internal->BKparamSettings.GetScannerAddress());
-  LOG_DEBUG("BK scanner OEM port: " << this->Internal->BKparamSettings.GetOemPort());
-  LOG_DEBUG("BK scanner toolbox port: " << this->Internal->BKparamSettings.GetToolboxPort());
+	LOG_DEBUG("BK scanner address: " << this->Internal->BKparamSettings.GetScannerAddress());
+	LOG_DEBUG("BK scanner OEM port: " << this->Internal->BKparamSettings.GetOemPort());
+	LOG_DEBUG("BK scanner toolbox port: " << this->Internal->BKparamSettings.GetToolboxPort());
 
   // Clear buffer on connect because the new frames that we will acquire might have a different size 
   this->Internal->Channel->Clear();
@@ -224,30 +225,43 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::InternalConnect()
 		  LOG_ERROR("Cound not init BK scanner");
 		  return PLUS_FAIL;
 	  }
+	  if (!this->StartDataStreaming())
+	  {
+		  return PLUS_FAIL;
+	  }
 
-    // Start data streaming
-    std::string query = "QUERY:GRAB_FRAME \"ON\",20;";
-    LOG_TRACE("Start data streaming. Query: " << query);
-	if (!SendQuery(query))
-	{
-		LOG_ERROR("Cound not start data streaming");
-		return PLUS_FAIL;
-	}
-
-	//Process all parameter messages, and read the first image message
-	size_t numBytesReceived = 0;
-	if (!ProcessMessagesAndReadNextImage(500, numBytesReceived))
-	{
-		LOG_ERROR("Cound not process inital parameter messages");
-		return PLUS_FAIL;
-	}
+	  LOG_DEBUG("Connected to BK scanner");
   }
 
 #endif
 
-  return PLUS_SUCCESS;
+	return PLUS_SUCCESS;
 }
 
+//----------------------------------------------------------------------------
+PlusStatus vtkPlusBkProFocusOemVideoSource::StartDataStreaming()
+{
+	std::string query;
+	if (this->ColorEnabled)
+	{
+		//Switch to power doppler
+		if (this->CommandPowerDopplerOn() != PLUS_SUCCESS)
+		{
+			return PLUS_FAIL;
+		}
+		query = "QUERY:GRAB_FRAME \"ON\",20,\"OVERLAY\";";
+	}
+	else
+	{
+		query = "QUERY:GRAB_FRAME \"ON\",20;";
+	}
+
+	LOG_TRACE("Start data streaming. Query: " << query);
+	if (!SendQuery(query))
+	{
+		return PLUS_FAIL;
+	}
+}
 
 //----------------------------------------------------------------------------
 PlusStatus vtkPlusBkProFocusOemVideoSource::InternalDisconnect()
@@ -416,27 +430,30 @@ fclose(f);
 }
 */
 
+#ifndef OFFLINE_TESTING
   if (this->ContinuousStreamingEnabled)
   {
     this->Internal->DecodedImageFrame->SetExtent(0, this->UltrasoundWindowSize[0] - 1, 0, this->UltrasoundWindowSize[1] - 1, 0, 0);
-    this->Internal->DecodedImageFrame->AllocateScalars(VTK_UNSIGNED_CHAR, 1);
 
     if (uncompressedPixelBufferSize > (this->UltrasoundWindowSize[0] * this->UltrasoundWindowSize[1] + TIMESTAMP_SIZE))
     {
-      // we received color image, convert to grayscale
-      PlusStatus status = PixelCodec::ConvertToGray(BI_RGB, this->UltrasoundWindowSize[0], this->UltrasoundWindowSize[1],
-        (unsigned char*)&(this->Internal->OemMessage[numBytesProcessed]),
-        (unsigned char*)this->Internal->DecodedImageFrame->GetScalarPointer());
+      // we received color image
+	  this->Internal->DecodedImageFrame->AllocateScalars(VTK_UNSIGNED_CHAR, 3);
+	  PlusStatus status = PixelCodec::ConvertToBmp24(PixelCodec::ComponentOrder_RGB, PixelCodec::PixelEncoding_BGR24, this->UltrasoundWindowSize[0], this->UltrasoundWindowSize[1],
+		  (unsigned char*)&(this->Internal->OemMessage[numBytesProcessed]),
+		  (unsigned char*)this->Internal->DecodedImageFrame->GetScalarPointer());
     }
-    else
-    {
-      std::memcpy(this->Internal->DecodedImageFrame->GetScalarPointer(),
-        (void*)&(this->Internal->OemMessage[numBytesProcessed]),
-        uncompressedPixelBufferSize);
-      LOG_TRACE(uncompressedPixelBufferSize << " bytes copied, start at " << numBytesProcessed); // 29
-    }
+	else
+	{
+		this->Internal->DecodedImageFrame->AllocateScalars(VTK_UNSIGNED_CHAR, 1);
+		std::memcpy(this->Internal->DecodedImageFrame->GetScalarPointer(),
+			(void*)&(this->Internal->OemMessage[numBytesProcessed]),
+			uncompressedPixelBufferSize);
+		LOG_TRACE(uncompressedPixelBufferSize << " bytes copied, start at " << numBytesProcessed); // 29
+	}
   }
   else
+#endif
   {
     if (DecodePngImage(uncompressedPixelBuffer, uncompressedPixelBufferSize, this->Internal->DecodedImageFrame) != PLUS_SUCCESS)
     {
@@ -459,12 +476,21 @@ fclose(f);
     int* frameExtent = this->Internal->DecodedImageFrame->GetExtent();
     int frameSizeInPix[2] = { frameExtent[1] - frameExtent[0] + 1, frameExtent[3] - frameExtent[2] + 1 };
     aSource->SetPixelType(this->Internal->DecodedImageFrame->GetScalarType());
-    aSource->SetImageType(US_IMG_BRIGHTNESS);
+	if (this->Internal->DecodedImageFrame->GetNumberOfScalarComponents() == 1)
+	{
+		aSource->SetImageType(US_IMG_BRIGHTNESS);
+	}
+	else
+	{
+		aSource->SetNumberOfScalarComponents(this->Internal->DecodedImageFrame->GetNumberOfScalarComponents());
+		aSource->SetImageType(US_IMG_RGB_COLOR);
+	}
     aSource->SetInputFrameSize(frameSizeInPix[0], frameSizeInPix[1], 1);
 
     LOG_INFO("Frame size: " << frameSizeInPix[0] << "x" << frameSizeInPix[1]
       << ", pixel type: " << vtkImageScalarTypeNameMacro(this->Internal->DecodedImageFrame->GetScalarType())
       << ", buffer image orientation: " << PlusVideoFrame::GetStringFromUsImageOrientation(aSource->GetInputImageOrientation()));
+	LOG_INFO("NumberOfScalarComponents: " << aSource->GetNumberOfScalarComponents());
 
   }
 
@@ -473,7 +499,8 @@ fclose(f);
 
   this->AddParametersToFrameFields();
   //if (aSource->AddItem(this->Internal->DecodedImageFrame, aSource->GetInputImageOrientation(), US_IMG_BRIGHTNESS, this->FrameNumber) != PLUS_SUCCESS)
-  if (aSource->AddItem(this->Internal->DecodedImageFrame, aSource->GetInputImageOrientation(), US_IMG_BRIGHTNESS, this->FrameNumber, UNDEFINED_TIMESTAMP, UNDEFINED_TIMESTAMP, &this->FrameFields) != PLUS_SUCCESS)
+  //if (aSource->AddItem(this->Internal->DecodedImageFrame, aSource->GetInputImageOrientation(), US_IMG_BRIGHTNESS, this->FrameNumber, UNDEFINED_TIMESTAMP, UNDEFINED_TIMESTAMP, &this->FrameFields) != PLUS_SUCCESS)
+  if (aSource->AddItem(this->Internal->DecodedImageFrame, aSource->GetInputImageOrientation(), aSource->GetImageType(), this->FrameNumber, UNDEFINED_TIMESTAMP, UNDEFINED_TIMESTAMP, &this->FrameFields) != PLUS_SUCCESS)
   {
     LOG_ERROR("Error adding item to video source " << aSource->GetSourceId() << " on channel " << this->Internal->Channel->GetChannelId());
     return PLUS_FAIL;
@@ -938,6 +965,7 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::ReadConfiguration(vtkXMLDataElement*
   XML_FIND_DEVICE_ELEMENT_REQUIRED_FOR_READING(deviceConfig, rootConfigElement);
   XML_READ_CSTRING_ATTRIBUTE_REQUIRED(IniFileName, deviceConfig);
   XML_READ_BOOL_ATTRIBUTE_OPTIONAL(ContinuousStreamingEnabled, deviceConfig);
+  XML_READ_BOOL_ATTRIBUTE_OPTIONAL(ColorEnabled, deviceConfig);
   return PLUS_SUCCESS;
 }
 
@@ -947,6 +975,7 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::WriteConfiguration(vtkXMLDataElement
   XML_FIND_DEVICE_ELEMENT_REQUIRED_FOR_WRITING(deviceConfig, rootConfigElement);
   deviceConfig->SetAttribute("IniFileName", this->IniFileName);
   XML_WRITE_BOOL_ATTRIBUTE(ContinuousStreamingEnabled, deviceConfig);
+  XML_WRITE_BOOL_ATTRIBUTE(ColorEnabled, deviceConfig);
   return PLUS_SUCCESS;
 }
 
@@ -1149,21 +1178,47 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::DecodePngImage(unsigned char* pngBuf
 
   decodedImage->SetExtent(0, width - 1, 0, height - 1, 0, 0);
 
+  int numberOfScalarComponents = png_get_channels(png_ptr, info_ptr);
+  if (!this->ColorEnabled)
+  {
+	  numberOfScalarComponents = 1;
+  }
+
+  int bitDepth = png_get_bit_depth(png_ptr, info_ptr);
 #if (VTK_MAJOR_VERSION < 6)
-  decodedImage->SetScalarTypeToUnsignedChar();
-  decodedImage->SetNumberOfScalarComponents(1);
+  if (bitDepth <= 8)
+	  decodedImage->SetScalarTypeToUnsignedChar();
+  else
+	  decodedImage->SetScalarTypeToUnsignedShort();
+  decodedImage->SetNumberOfScalarComponents(numberOfScalarComponents);
   decodedImage->AllocateScalars();
 #else
-  decodedImage->AllocateScalars(VTK_UNSIGNED_CHAR, 1);
+  if (bitDepth <= 8)
+	  decodedImage->AllocateScalars(VTK_UNSIGNED_CHAR, numberOfScalarComponents);
+  else
+	  decodedImage->AllocateScalars(VTK_UNSIGNED_SHORT, numberOfScalarComponents);
 #endif
 
-  PlusStatus status = PixelCodec::ConvertToGray(PixelCodec::PixelEncoding_RGBA32, width, height, &(this->Internal->DecodingBuffer[0]), (unsigned char*)decodedImage->GetScalarPointer());
+
+  if (!this->ColorEnabled)
+  {
+	  PlusStatus status = PixelCodec::ConvertToGray(PixelCodec::PixelEncoding_RGBA32, width, height, &(this->Internal->DecodingBuffer[0]), (unsigned char*)decodedImage->GetScalarPointer());
+  }
+  else
+  {
+	  unsigned char* source = &(this->Internal->DecodingBuffer[0]);
+	  unsigned char* destination = (unsigned char*)decodedImage->GetScalarPointer();
+	  for (unsigned int i = 0; i < width*height*numberOfScalarComponents; ++i)
+	  {
+		  destination[i] = source[i];
+	  }
+  }
 
   // close the file
   png_read_end(png_ptr, NULL);
   png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
 
-  return status;
+  return PLUS_SUCCESS;
 }
 
 

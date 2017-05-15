@@ -69,6 +69,15 @@ public:
   */
   vtkBooleanMacro(ContinuousStreamingEnabled, bool);
 
+  /*! Enable/disable color in the streamed video */
+  vtkSetMacro(ColorEnabled, bool);
+
+  /*! Enable/disable color in the streamed video */
+  vtkGetMacro(ColorEnabled, bool);
+
+  /*! Enable/disable color in the streamed video */
+  vtkBooleanMacro(ColorEnabled, bool);
+
 
   void GetValidParameterNames(std::vector<std::string>& parameterNames);
   PlusStatus TriggerParameterAnswers(const std::vector<std::string> parameterNames);
@@ -119,6 +128,8 @@ protected:
 
   /*! Device-specific connect */
   virtual PlusStatus InternalConnect();
+
+  PlusStatus StartDataStreaming();
 
   /*! Device-specific disconnect */
   virtual PlusStatus InternalDisconnect();
@@ -209,6 +220,7 @@ protected:
   char* IniFileName;
 
   bool ContinuousStreamingEnabled;
+  bool ColorEnabled;
 
   // For internal storage of additional variables (to minimize the number of included headers)
   class vtkInternal;
