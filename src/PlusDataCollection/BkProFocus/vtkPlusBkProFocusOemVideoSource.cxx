@@ -1170,15 +1170,15 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::DecodePngImage(unsigned char* pngBuf
   }
   png_read_image(png_ptr, row_pointers);
 
-  // copy the data into the outPtr
-  if (width * 3 != rowbytes)
+  int numberOfScalarComponents = png_get_channels(png_ptr, info_ptr);
+
+  if (width * numberOfScalarComponents != rowbytes)
   {
     LOG_WARNING("There is padding at the end of PNG lines, image may be skewed");
   }
 
   decodedImage->SetExtent(0, width - 1, 0, height - 1, 0, 0);
 
-  int numberOfScalarComponents = png_get_channels(png_ptr, info_ptr);
   if (!this->ColorEnabled)
   {
 	  numberOfScalarComponents = 1;
