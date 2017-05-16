@@ -33,11 +33,6 @@ static const char OFFLINE_TESTING_FILENAME[] = "c:\\dev\\bktest_color.png";
 #include <string>
 #include "stdint.h"
 
-//TODO: Remove ParamConnectionSettings
-#include "ParamConnectionSettings.h"
-
-#include "UseCaseParser.h"
-#include "UseCaseStructs.h"
 #include "vtkPlusUsImagingParameters.h"
 
 static const int TIMESTAMP_SIZE = 4;
@@ -79,7 +74,6 @@ public:
 
   vtkPlusChannel* Channel;
 
-  ParamConnectionSettings BKparamSettings;
   vtkSmartPointer<vtkClientSocket> VtkSocket;
   std::vector<char> OemMessage;
 
@@ -115,7 +109,8 @@ vtkPlusBkProFocusOemVideoSource::vtkPlusBkProFocusOemVideoSource()
 {
   this->Internal = new vtkInternal(this);
 
-  this->IniFileName = NULL;
+  this->ScannerAddress = NULL;
+  this->OemPort = 0;
 
   this->ContinuousStreamingEnabled = false;
   this->ColorEnabled = false;
@@ -161,8 +156,7 @@ vtkPlusBkProFocusOemVideoSource::~vtkPlusBkProFocusOemVideoSource()
 
   delete this->Internal;
   this->Internal = NULL;
-
-  SetIniFileName(NULL);
+  this->ScannerAddress = NULL;
 }
 
 //----------------------------------------------------------------------------
@@ -187,31 +181,21 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::InternalConnect()
 		this->Internal->Channel = this->OutputChannels[0];
 	}
 
-	std::string iniFilePath;
-	GetFullIniFilePath(iniFilePath);
-	if (!this->Internal->BKparamSettings.LoadSettingsFromIniFile(iniFilePath.c_str()))
-	{
-		LOG_ERROR("Could not load BK parameter settings from file: " << iniFilePath.c_str());
-		return PLUS_FAIL;
-	}
-
-	LOG_DEBUG("BK scanner address: " << this->Internal->BKparamSettings.GetScannerAddress());
-	LOG_DEBUG("BK scanner OEM port: " << this->Internal->BKparamSettings.GetOemPort());
-	LOG_DEBUG("BK scanner toolbox port: " << this->Internal->BKparamSettings.GetToolboxPort());
-
   // Clear buffer on connect because the new frames that we will acquire might have a different size 
   this->Internal->Channel->Clear();
   this->Internal->VtkSocket = vtkSmartPointer<vtkClientSocket>::New();
 
+  LOG_DEBUG("BK scanner address: " << this->ScannerAddress);
+  LOG_DEBUG("BK scanner OEM port: " << this->OemPort);
+
 #ifndef OFFLINE_TESTING
   LOG_DEBUG("Connecting to BK scanner");
-  bool connected = this->Internal->VtkSocket->ConnectToServer(this->Internal->BKparamSettings.GetScannerAddress(), this->Internal->BKparamSettings.GetOemPort());
+  bool connected = this->Internal->VtkSocket->ConnectToServer(this->ScannerAddress), this->OemPort);
   if (!connected)
   {
-    LOG_ERROR("Could not connect to BKProFocusOem:"
-      << " scanner address = " << this->Internal->BKparamSettings.GetScannerAddress()
-      << ", OEM port = " << this->Internal->BKparamSettings.GetOemPort()
-      << ", toolbox port = " << this->Internal->BKparamSettings.GetToolboxPort());
+	  LOG_ERROR("Could not connect to BKProFocusOem:"
+		  << " scanner address = " << this->ScannerAddress
+		  << ", OEM port = " << this->OemPort;
     return PLUS_FAIL;
   }
   LOG_DEBUG("Connected to BK scanner");
@@ -963,7 +947,8 @@ std::string vtkPlusBkProFocusOemVideoSource::AddSpecialCharacters(std::string qu
 PlusStatus vtkPlusBkProFocusOemVideoSource::ReadConfiguration(vtkXMLDataElement* rootConfigElement)
 {
   XML_FIND_DEVICE_ELEMENT_REQUIRED_FOR_READING(deviceConfig, rootConfigElement);
-  XML_READ_CSTRING_ATTRIBUTE_REQUIRED(IniFileName, deviceConfig);
+  XML_READ_CSTRING_ATTRIBUTE_REQUIRED(ScannerAddress, deviceConfig);
+  XML_READ_SCALAR_ATTRIBUTE_REQUIRED(int, OemPort, deviceConfig);
   XML_READ_BOOL_ATTRIBUTE_OPTIONAL(ContinuousStreamingEnabled, deviceConfig);
   XML_READ_BOOL_ATTRIBUTE_OPTIONAL(ColorEnabled, deviceConfig);
   return PLUS_SUCCESS;
@@ -973,28 +958,12 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::ReadConfiguration(vtkXMLDataElement*
 PlusStatus vtkPlusBkProFocusOemVideoSource::WriteConfiguration(vtkXMLDataElement* rootConfigElement)
 {
   XML_FIND_DEVICE_ELEMENT_REQUIRED_FOR_WRITING(deviceConfig, rootConfigElement);
-  deviceConfig->SetAttribute("IniFileName", this->IniFileName);
+  XML_WRITE_CSTRING_ATTRIBUTE_IF_NOT_NULL(ScannerAddress, deviceConfig);
+  std::stringstream ss;
+  ss << this->OemPort;
+  deviceConfig->SetAttribute("OemPort", ss.str().c_str());
   XML_WRITE_BOOL_ATTRIBUTE(ContinuousStreamingEnabled, deviceConfig);
   XML_WRITE_BOOL_ATTRIBUTE(ColorEnabled, deviceConfig);
-  return PLUS_SUCCESS;
-}
-
-//-----------------------------------------------------------------------------
-PlusStatus vtkPlusBkProFocusOemVideoSource::GetFullIniFilePath(std::string &fullPath)
-{
-  if (this->IniFileName == NULL)
-  {
-    LOG_ERROR("Ini file name has not been set");
-    return PLUS_FAIL;
-  }
-  if (vtksys::SystemTools::FileIsFullPath(this->IniFileName))
-  {
-    fullPath = this->IniFileName;
-  }
-  else
-  {
-    fullPath = vtkPlusConfig::GetInstance()->GetDeviceSetConfigurationPath(this->IniFileName);
-  }
   return PLUS_SUCCESS;
 }
 

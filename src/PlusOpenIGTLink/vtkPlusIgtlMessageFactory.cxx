@@ -140,7 +140,7 @@ PlusStatus vtkPlusIgtlMessageFactory::PackMessages(const PlusIgtlClientInfo& cli
   for (std::vector<std::string>::const_iterator messageTypeIterator = clientInfo.IgtlMessageTypes.begin(); messageTypeIterator != clientInfo.IgtlMessageTypes.end(); ++ messageTypeIterator)
   {
     std::string messageType = (*messageTypeIterator);
-	LOG_INFO("PackMessages. Message: " << messageType);
+	//LOG_INFO("PackMessages. Message: " << messageType);
 
     igtl::MessageBase::Pointer igtlMessage;
     try

@@ -18,7 +18,6 @@
   \brief Class for acquiring ultrasound images from BK ultrasound systems through the OEM interface
 
   Requires the PLUS_USE_BKPROFOCUS_VIDEO option in CMake.
-  Requires GrabbieLib (SDK provided by BK).
 
   \ingroup PlusLibDataCollection
 */
@@ -48,9 +47,15 @@ public:
   /*! Verify the device is correctly configured */
   virtual PlusStatus NotifyConfigured();
 
-  /*! Set the name of the BK ini file that stores connection and acquisition settings */
-  vtkSetStringMacro(IniFileName);
+  /*! BK scanner address */
+  vtkSetStringMacro(ScannerAddress);
 
+  /*! BK scanner address */
+  vtkGetStringMacro(ScannerAddress);
+
+  /* BK scanner OEM port */
+  vtkSetMacro(OemPort, unsigned short);
+  
   /*!
     Enable/disable continuous streaming. Continuous streaming (GRAB_FRAME command) requires extra license
     from BK but it allows faster image acquisition.
@@ -175,9 +180,7 @@ protected:
   PlusStatus SubscribeToParameterChanges();
   PlusStatus ConfigEventsOn();
   PlusStatus CommandPowerDopplerOn();
-
-  PlusStatus GetFullIniFilePath(std::string &fullPath);
-
+  
   PlusStatus DecodePngImage(unsigned char* pngBuffer, unsigned int pngBufferSize, vtkImageData* decodedImage);
 
   PlusStatus RequestParametersFromScanner();
@@ -216,8 +219,10 @@ protected:
   std::string RemoveQuotationMarks(std::string inString);
   void SetProbeTypeForPort(std::string port, std::string probeTypeString);
 
-  /*! BK ini file storing the connection and acquisition settings */
-  char* IniFileName;
+  /*! BK scanner address */
+  char* ScannerAddress;
+  /*! BK OEM port */
+  unsigned short OemPort;
 
   bool ContinuousStreamingEnabled;
   bool ColorEnabled;

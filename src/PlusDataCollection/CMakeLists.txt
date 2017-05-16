@@ -863,18 +863,10 @@ IF (PLUS_USE_BKPROFOCUS_VIDEO)
     ${BKProFocus_SRCS}
     )
 
-  SET (PlusDataCollection_INCLUDE_DIRS ${PlusDataCollection_INCLUDE_DIRS} 
-    ${GRABBIELIB_SOURCE_DIR}/AcquisitionLibrary
-    ${GRABBIELIB_SOURCE_DIR}/BkmDataFileLib
-    ${GRABBIELIB_SOURCE_DIR}/cfuff
-    ${GRABBIELIB_SOURCE_DIR}/CommandAndControl
-    ${GRABBIELIB_SOURCE_DIR}/LogLibrary
-    ${GRABBIELIB_SOURCE_DIR}/OemParams
-    ${GRABBIELIB_SOURCE_DIR}/ParametersLibrary        
+  SET (PlusDataCollection_INCLUDE_DIRS ${PlusDataCollection_INCLUDE_DIRS}   
     ${CMAKE_CURRENT_SOURCE_DIR}/BkProFocus
     )
   SET (PlusDataCollection_LIBS ${PlusDataCollection_LIBS} 
-    GrabbieLib
     vtkpng
     vtkInteractionImage
     vtkPlusRendering
@@ -882,6 +874,18 @@ IF (PLUS_USE_BKPROFOCUS_VIDEO)
 
   # CameraLink interface
   IF (PLUS_USE_BKPROFOCUS_CAMERALINK)
+    SET (PlusDataCollection_INCLUDE_DIRS ${PlusDataCollection_INCLUDE_DIRS} 
+      ${GRABBIELIB_SOURCE_DIR}/AcquisitionLibrary
+      ${GRABBIELIB_SOURCE_DIR}/BkmDataFileLib
+      ${GRABBIELIB_SOURCE_DIR}/cfuff
+      ${GRABBIELIB_SOURCE_DIR}/CommandAndControl
+      ${GRABBIELIB_SOURCE_DIR}/LogLibrary
+      ${GRABBIELIB_SOURCE_DIR}/OemParams
+      ${GRABBIELIB_SOURCE_DIR}/ParametersLibrary 
+    )
+	SET (PlusDataCollection_LIBS ${PlusDataCollection_LIBS} 
+      GrabbieLib
+    )
     SET (PlusDataCollection_SRCS ${PlusDataCollection_SRCS}
       BkProFocus/vtkPlusBkProFocusCameraLinkVideoSource.cxx
       BkProFocus/PlusBkProFocusCameraLinkReceiver.cxx
