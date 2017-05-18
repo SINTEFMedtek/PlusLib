@@ -29,6 +29,13 @@ See License.txt for details.
 static const long VTK_BI_UYVY = 0x59565955;
 static const long VTK_BI_YUY2 = 0x32595559;
 
+#ifndef BI_RGB
+#define BI_RGB 0L
+#endif
+#ifndef BI_JPEG
+#define BI_JPEG 4L
+#endif
+
 /*!
 \class PixelCodec
 \brief A utility class that contains static functions for converting between various pixel encodings
@@ -94,7 +101,7 @@ public:
   static std::string GetCompressionModeAsString(int inputCompression)
   {
     char fourccHex[16] = {0};
-    sprintf_s(fourccHex, "0x%08x", inputCompression);
+    sprintf(fourccHex, "0x%08x", inputCompression);
     std::string fourcc = "????";
     for (int i = 0; i < 4; i++)
     {

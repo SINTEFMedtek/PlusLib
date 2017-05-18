@@ -85,7 +85,7 @@ public:
   std::vector<png_bytep> DecodingLineBuffer;
 
 
-  vtkPlusBkProFocusOemVideoSource::vtkInternal::vtkInternal(vtkPlusBkProFocusOemVideoSource* external)
+  vtkInternal(vtkPlusBkProFocusOemVideoSource* external)
     : External(external)
     , Channel(NULL)
   {
@@ -93,7 +93,7 @@ public:
 
   }
 
-  virtual vtkPlusBkProFocusOemVideoSource::vtkInternal::~vtkInternal()
+  virtual ~vtkInternal()
   {
     this->Channel = NULL;
     this->DecodedImageFrame->Delete();
