@@ -149,7 +149,7 @@ protected:
   PlusStatus InternalUpdate();
 
   /*! Process all received messages until an image message is read. */
-  PlusStatus ProcessMessagesAndReadNextImage(int maxReplySize, size_t &numBytesReceived);
+  PlusStatus ProcessMessagesAndReadNextImage(int maxReplySize);
 
   PlusStatus ReadNextMessage();
   std::vector<char> removeSpecialCharacters(std::vector<char> inMessage);

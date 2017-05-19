@@ -8,7 +8,7 @@ See License.txt for details.
 
 // Define OFFLINE_TESTING to read image input from file instead of reading from the actual hardware device.
 // This is useful only for testing and debugging without having access to an actual BK scanner.
-#define OFFLINE_TESTING
+//#define OFFLINE_TESTING
 //static const char OFFLINE_TESTING_FILENAME[] = "c:\\Users\\lasso\\Downloads\\bktest.png";
 static const char OFFLINE_TESTING_FILENAME[] = "c:\\dev\\bktest_color.png";
 
@@ -190,12 +190,12 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::InternalConnect()
 
 #ifndef OFFLINE_TESTING
   LOG_DEBUG("Connecting to BK scanner");
-  bool connected = this->Internal->VtkSocket->ConnectToServer(this->ScannerAddress), this->OemPort);
+  bool connected = (this->Internal->VtkSocket->ConnectToServer(this->ScannerAddress, this->OemPort) == 0);
   if (!connected)
   {
 	  LOG_ERROR("Could not connect to BKProFocusOem:"
 		  << " scanner address = " << this->ScannerAddress
-		  << ", OEM port = " << this->OemPort;
+		  << ", OEM port = " << this->OemPort);
     return PLUS_FAIL;
   }
   LOG_DEBUG("Connected to BK scanner");
@@ -229,10 +229,10 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::StartDataStreaming()
 	if (this->ColorEnabled)
 	{
 		//Switch to power doppler
-		if (this->CommandPowerDopplerOn() != PLUS_SUCCESS)
+		/*if (this->CommandPowerDopplerOn() != PLUS_SUCCESS)
 		{
 			return PLUS_FAIL;
-		}
+		}*/
 		query = "QUERY:GRAB_FRAME \"ON\",20,\"OVERLAY\";";
 	}
 	else
@@ -245,6 +245,7 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::StartDataStreaming()
 	{
 		return PLUS_FAIL;
 	}
+	return PLUS_SUCCESS;
 }
 
 //----------------------------------------------------------------------------
@@ -357,19 +358,20 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::InternalUpdate()
       maxReplySize = 3 * this->UltrasoundWindowSize[0] * this->UltrasoundWindowSize[1] + 30; // incl. header & command
     }
 	//Process all incomming messages until an image message is found
-	size_t numBytesReceived = 0;
-	if (!this->ProcessMessagesAndReadNextImage(maxReplySize, numBytesReceived))
+	if (!this->ProcessMessagesAndReadNextImage(maxReplySize))
 	{
 		return PLUS_FAIL;
 	}
-	
+	size_t numBytesReceived = this->Internal->OemMessage.size();
+
     // First detect the #
-	for (numBytesProcessed = 0; this->Internal->OemMessage[numBytesProcessed] != '#' && numBytesProcessed < numBytesReceived; numBytesProcessed++);
-    numBytesProcessed++;
+	for (numBytesProcessed = 0; this->Internal->OemMessage[numBytesProcessed] != '#' && numBytesProcessed < numBytesReceived; numBytesProcessed++)
+		;
+	numBytesProcessed++;
 
 	int numChars = (int)this->Internal->OemMessage[numBytesProcessed] - (int)('0');
     numBytesProcessed++;
-    LOG_TRACE("Number of bytes in the image size: " << numChars); // 7 or 6
+	LOG_TRACE("Number of bytes in the image size: " << numChars); // 7 or 6
     if (numChars == 0)
     {
       LOG_ERROR("Failed to read image from BK OEM interface");
@@ -379,8 +381,8 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::InternalUpdate()
     for (int k = 0; k < numChars; k++, numBytesProcessed++)
     {
 	  uncompressedPixelBufferSize = uncompressedPixelBufferSize * 10 + ((int)this->Internal->OemMessage[numBytesProcessed] - '0');
-    }
-    LOG_TRACE("uncompressedPixelBufferSize = " << uncompressedPixelBufferSize);
+	}
+	LOG_TRACE("uncompressedPixelBufferSize = " << uncompressedPixelBufferSize);
 
 	uncompressedPixelBuffer = (unsigned char*)&(this->Internal->OemMessage[numBytesProcessed]);
 
@@ -394,7 +396,7 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::InternalUpdate()
       }
       // Seems this is NOT correct, but the format is NOT described in the manual
       unsigned int _timestamp = *(int*)timeStamp;
-      LOG_TRACE("Image timestamp = " << static_cast<std::ostringstream*>(&(std::ostringstream() << _timestamp))->str());
+	  //LOG_TRACE("Image timestamp = " << static_cast<std::ostringstream*>(&(std::ostringstream() << _timestamp))->str());
     }
 /*  }
   catch (TcpClientWaitException e)
@@ -496,7 +498,7 @@ fclose(f);
 
 
 //----------------------------------------------------------------------------
-PlusStatus vtkPlusBkProFocusOemVideoSource::ProcessMessagesAndReadNextImage(int maxReplySize, size_t &numBytesReceived)
+PlusStatus vtkPlusBkProFocusOemVideoSource::ProcessMessagesAndReadNextImage(int maxReplySize)
 {
 	LOG_DEBUG("ProcessMessagesAndReadNextImage");
 	//this->Internal->OemClientReadBuffer.resize(maxReplySize);
@@ -582,7 +584,7 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::ProcessMessagesAndReadNextImage(int 
 		{
 			LOG_DEBUG("Unfreeze");
 		}
-		else if (messageString.compare("ACK") == 0)
+		else if (messageString.compare("ACK;") == 0)
 		{
 			LOG_DEBUG("Acknowledge message received");
 		}
