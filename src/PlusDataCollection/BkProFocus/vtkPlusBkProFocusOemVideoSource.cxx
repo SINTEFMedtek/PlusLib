@@ -204,7 +204,8 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::InternalConnect()
   {
 	  if (!(this->RequestParametersFromScanner()
 		  && this->ConfigEventsOn()
-		  && this->SubscribeToParameterChanges()))
+		  && this->SubscribeToParameterChanges()
+			))
 	  {
 		  LOG_ERROR("Cound not init BK scanner");
 		  return PLUS_FAIL;
@@ -249,12 +250,8 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::StartDataStreaming()
 }
 
 //----------------------------------------------------------------------------
-PlusStatus vtkPlusBkProFocusOemVideoSource::InternalDisconnect()
+PlusStatus vtkPlusBkProFocusOemVideoSource::StopDataStreaming()
 {
-
-  LOG_DEBUG("Disconnect from BKProFocusOem");
-
-#ifndef OFFLINE_TESTING
   std::string query = "QUERY:GRAB_FRAME \"OFF\";";
   LOG_TRACE("Query from vtkPlusBkProFocusOemVideoSource: " << query);
   if (!SendQuery(query))
@@ -262,21 +259,27 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::InternalDisconnect()
 	  return PLUS_FAIL;
   }
 
-  // Retrieve the "ACK;"
-  if(!this->ReadNextMessage())
+  return PLUS_SUCCESS;
+}
+
+//----------------------------------------------------------------------------
+PlusStatus vtkPlusBkProFocusOemVideoSource::InternalDisconnect()
+{
+
+  LOG_DEBUG("Disconnect from BKProFocusOem");
+
+#ifndef OFFLINE_TESTING
+  if (!this->StopDataStreaming())
   {
-	  LOG_ERROR("Failed to read response from BK OEM interface");
 	  return PLUS_FAIL;
   }
 #endif
-
   this->StopRecording();
   
   if (this->Internal->VtkSocket->GetConnected())
 	  this->Internal->VtkSocket->CloseSocket();
 
   return PLUS_SUCCESS;
-
 }
 
 //----------------------------------------------------------------------------
@@ -569,18 +572,18 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::ProcessMessagesAndReadNextImage(int 
 				this->ParseTransducerData(replyStream);
 			}
 		}
-		else if ((messageString.compare("EVENT:TRANSDUCER_CONNECT") == 0)
-			|| (messageString.compare("EVENT:TRANSDUCER_DISCONNECT") == 0)
-			|| (messageString.compare("EVENT:TRANSDUCER_SELECTED") == 0) )
+		else if ((messageString.compare("EVENT:TRANSDUCER_CONNECT;") == 0)
+			|| (messageString.compare("EVENT:TRANSDUCER_DISCONNECT;") == 0)
+			|| (messageString.compare("EVENT:TRANSDUCER_SELECTED;") == 0) )
 		{
 			this->QueryTransducerList();//Need to query, as this can't be subscribed to
 			//this->QueryTransducer();//TODO: May not be needed if we subscribe to this?
 		}
-		else if (messageString.compare("EVENT:FREEZE") == 0)
+		else if (messageString.compare("EVENT:FREEZE;") == 0)
 		{
 			LOG_DEBUG("Freeze");
 		}
-		else if (messageString.compare("EVENT:UNFREEZE") == 0)
+		else if (messageString.compare("EVENT:UNFREEZE;") == 0)
 		{
 			LOG_DEBUG("Unfreeze");
 		}

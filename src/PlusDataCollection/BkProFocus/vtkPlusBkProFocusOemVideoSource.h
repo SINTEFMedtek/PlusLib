@@ -135,6 +135,7 @@ protected:
   virtual PlusStatus InternalConnect();
 
   PlusStatus StartDataStreaming();
+  PlusStatus StopDataStreaming();
 
   /*! Device-specific disconnect */
   virtual PlusStatus InternalDisconnect();
