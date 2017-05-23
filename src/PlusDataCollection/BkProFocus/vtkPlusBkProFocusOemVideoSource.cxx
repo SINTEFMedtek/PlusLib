@@ -10,7 +10,8 @@ See License.txt for details.
 // This is useful only for testing and debugging without having access to an actual BK scanner.
 //#define OFFLINE_TESTING
 //static const char OFFLINE_TESTING_FILENAME[] = "c:\\Users\\lasso\\Downloads\\bktest.png";
-static const char OFFLINE_TESTING_FILENAME[] = "c:\\dev\\bktest_color.png";
+//static const char OFFLINE_TESTING_FILENAME[] = "c:\\dev\\bktest_color.png";
+static const char OFFLINE_TESTING_FILENAME[] = "/Users/olevs/dev/test/bktest_color.png";
 
 #include "PlusConfigure.h"
 #include "vtkPlusBkProFocusOemVideoSource.h"
@@ -204,7 +205,7 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::InternalConnect()
   {
 	  if (!(this->RequestParametersFromScanner()
 		  && this->ConfigEventsOn()
-		  && this->SubscribeToParameterChanges()
+//		  && this->SubscribeToParameterChanges()
 			))
 	  {
 		  LOG_ERROR("Cound not init BK scanner");
