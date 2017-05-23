@@ -606,15 +606,52 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::ReadNextMessage()
 	char character(0);
 	unsigned totalBytes = 0;
 	int receivedBytes = 1;
-	while (character != EOT && receivedBytes == 1)
+	while (character != EOT && receivedBytes >= 1)
 	{
 		receivedBytes = this->Internal->VtkSocket->Receive(&character, 1);
 		rawMessage.push_back(character);
 		totalBytes++;
+		//Speedup by reading the large data blocks in one operation
+		if(character == '#')//Read binary block
+		{
+			receivedBytes = this->Internal->VtkSocket->Receive(&character, 1);
+			if(receivedBytes == 1)
+			{
+				//Place binary data block in a separate variable instead of in rawMessage?
+				int numChars = (int)character - (int)('0');
+				rawMessage.push_back(character);
+				totalBytes++;
+				LOG_TRACE("Number of bytes in binary data block size: " << numChars); // 7 or 6
+				if (numChars == 0)
+				{
+					LOG_ERROR("Failed to read binary data block from BK OEM interface");
+					return PLUS_FAIL;
+				}
+
+				unsigned int uncompressedPixelBufferSize = 0;
+				for (int k = 0; k < numChars; k++, totalBytes++)
+				{
+					receivedBytes = this->Internal->VtkSocket->Receive(&character, 1);
+					rawMessage.push_back(character);
+					uncompressedPixelBufferSize = uncompressedPixelBufferSize * 10 + ((int)character - (int)'0');
+				}
+				LOG_TRACE("uncompressedPixelBufferSize = " << uncompressedPixelBufferSize);
+
+				char *buffer[uncompressedPixelBufferSize];
+				receivedBytes = this->Internal->VtkSocket->Receive(&buffer, uncompressedPixelBufferSize);
+				if(receivedBytes != uncompressedPixelBufferSize)
+				{
+					LOG_ERROR("Failed to read full binary data block from BK OEM interface");
+					return PLUS_FAIL;
+				}
+				totalBytes += uncompressedPixelBufferSize;
+				rawMessage.insert(rawMessage.end(), buffer[0], buffer[uncompressedPixelBufferSize]);
+			}
+		}
 	}
 	this->Internal->OemMessage = removeSpecialCharacters(rawMessage);
 
-	if (receivedBytes != 1)
+	if (receivedBytes < 1)
 		return PLUS_FAIL;
 	else
 		return PLUS_SUCCESS;
