@@ -369,8 +369,6 @@ void* vtkPlusOpenIGTLinkServer::DataSenderThread(vtkMultiThreader::ThreadInfo* d
     // Send remote command execution replies to clients before sending any images/transforms/etc...
     SendCommandResponses(*self);
 
-	SendParameterValues(*self);
-
     // Send image/tracking/string data
     SendLatestFramesToClients(*self, elapsedTimeSinceLastPacketSentSec);
   }
@@ -378,61 +376,6 @@ void* vtkPlusOpenIGTLinkServer::DataSenderThread(vtkMultiThreader::ThreadInfo* d
   self->DataSenderThreadId = -1;
   self->DataSenderActive.second = false;
   return NULL;
-}
-
-//----------------------------------------------------------------------------
-PlusStatus vtkPlusOpenIGTLinkServer::SendParameterValues(vtkPlusOpenIGTLinkServer& self)
-{
-	if (self.BroadcastChannel != NULL)
-	{
-		std::map<std::string, std::string> parameters;
-		if (self.BroadcastChannel->GetParameters(parameters) == PLUS_SUCCESS)//GetAndDeleteParameters
-		{
-			double timestamp = vtkPlusAccurateTimer::GetUniversalTime();//test
-
-			// Lock before we send message to the clients
-			PlusLockGuard<vtkPlusRecursiveCriticalSection> igtlClientsMutexGuardedLock(self.IgtlClientsMutex);
-			for (std::list<ClientData>::iterator clientIterator = self.IgtlClients.begin(); clientIterator != self.IgtlClients.end(); ++clientIterator)
-			{
-				igtl::ClientSocket::Pointer clientSocket = (*clientIterator).ClientSocket;
-
-				// Create IGT messages
-				std::vector<igtl::MessageBase::Pointer> igtlMessages;
-				std::vector<igtl::MessageBase::Pointer>::iterator igtlMessageIterator;
-
-				if(self.IgtlMessageFactory->PackMessages(clientIterator->ClientInfo, igtlMessages, parameters, timestamp) != PLUS_SUCCESS)
-				{
-					LOG_WARNING("Failed to pack all IGT messages");
-				}
-
-				// Send all messages to a client
-				for (igtlMessageIterator = igtlMessages.begin(); igtlMessageIterator != igtlMessages.end(); ++igtlMessageIterator)
-				{
-					igtl::MessageBase::Pointer igtlMessage = (*igtlMessageIterator);
-					if (igtlMessage.IsNull())
-					{
-						continue;
-					}
-
-					int retValue = 0;
-					RETRY_UNTIL_TRUE((retValue = clientSocket->Send(igtlMessage->GetBufferPointer(), igtlMessage->GetBufferSize())) != 0, self.NumberOfRetryAttempts, self.DelayBetweenRetryAttemptsSec);
-					if (retValue == 0)
-					{
-						//disconnectedClientIds.push_back(clientIterator->ClientId);
-						igtl::TimeStamp::Pointer ts = igtl::TimeStamp::New();
-						igtlMessage->GetTimeStamp(ts);
-						LOG_INFO("Client disconnected - could not send " << igtlMessage->GetMessageType() << " message to client (device name: " << igtlMessage->GetDeviceName()
-							<< "  Timestamp: " << std::fixed << ts->GetTimeStamp() << ").");
-						break;
-					}
-
-					// Update the TDATA timestamp, even if TDATA isn't sent (cheaper than checking for existing TDATA message type)
-					clientIterator->ClientInfo.LastTDATASentTimeStamp = timestamp;//TODO: Don't update?
-				}
-			}
-		}
-	}
-	return PLUS_SUCCESS;
 }
 
 //----------------------------------------------------------------------------

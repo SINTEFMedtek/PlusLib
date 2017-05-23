@@ -28,7 +28,6 @@ See License.txt for details.
 #include "vtkPlusUpdateTransformCommand.h"
 #include "vtkPlusVersionCommand.h"
 #include "vtkXMLUtilities.h"
-#include "vtkPlusGetCommand.h"
 
 vtkStandardNewMacro(vtkPlusCommandProcessor);
 
@@ -49,7 +48,6 @@ vtkPlusCommandProcessor::vtkPlusCommandProcessor()
   RegisterPlusCommand(vtkSmartPointer<vtkPlusSaveConfigCommand>::New());
   RegisterPlusCommand(vtkSmartPointer<vtkPlusSendTextCommand>::New());
   RegisterPlusCommand(vtkSmartPointer<vtkPlusVersionCommand>::New());
-  RegisterPlusCommand(vtkSmartPointer<vtkPlusGetCommand>::New());
 #ifdef PLUS_USE_STEALTHLINK
   RegisterPlusCommand(vtkSmartPointer<vtkPlusStealthLinkCommand>::New());
 #endif

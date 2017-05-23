@@ -68,10 +68,6 @@ public:
     PlusCommon::VTKScalarPixelType pixelType, unsigned int numberOfScalarComponents, US_IMAGE_TYPE imageType, int numberOfBytesToSkip, long frameNumber, double unfilteredTimestamp = UNDEFINED_TIMESTAMP,
     double filteredTimestamp = UNDEFINED_TIMESTAMP, const PlusTrackedFrame::FieldMapType* customFields = NULL);
 
-
-  virtual void GetValidParameterNames(std::vector<std::string>& parameterNames);
-  virtual PlusStatus TriggerParameterAnswers(const std::vector<std::string> parameterNames);
-
   /*!
     If non-NULL then ImageToTransducer transform is added as a custom field to the image data with the specified name.
     The Transducer coordinate system origin is in the center of the transducer crystal array,

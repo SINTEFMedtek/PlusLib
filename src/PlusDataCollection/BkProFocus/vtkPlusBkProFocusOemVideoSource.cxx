@@ -8,7 +8,7 @@ See License.txt for details.
 
 // Define OFFLINE_TESTING to read image input from file instead of reading from the actual hardware device.
 // This is useful only for testing and debugging without having access to an actual BK scanner.
-//#define OFFLINE_TESTING
+#define OFFLINE_TESTING
 //static const char OFFLINE_TESTING_FILENAME[] = "c:\\Users\\lasso\\Downloads\\bktest.png";
 //static const char OFFLINE_TESTING_FILENAME[] = "c:\\dev\\bktest_color.png";
 static const char OFFLINE_TESTING_FILENAME[] = "/Users/olevs/dev/test/bktest_color.png";
@@ -295,44 +295,9 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::InternalStopRecording()
   return PLUS_SUCCESS;
 }
 
-
-//Not used for now
-//----------------------------------------------------------------------------
-PlusStatus vtkPlusBkProFocusOemVideoSource::AddParameterReplies()
-{
-	vtkPlusDataSource* parameterSource(NULL);
-	if (this->Internal->Channel->GetParameterDataSource(parameterSource, "GetParameters") == PLUS_SUCCESS)
-	{
-		//std::map<std::string, std::string> parameters;
-		if (this->ProcessParameterValues(/*parameters*/) == PLUS_SUCCESS)
-		{
-			LOG_DEBUG("Add parameter replies to parameter data source");
-			//this->FrameNumber++;//Need to add frame number?
-			/*if (parameterSource->AddItem(parameters, this->FrameNumber) != PLUS_SUCCESS)
-			{
-				LOG_ERROR("Error adding item " << parameterSource->GetSourceId() << " on channel " << this->Internal->Channel->GetChannelId());
-				return PLUS_FAIL;
-			}*/
-		}
-	}
-	return PLUS_SUCCESS;
-}
-
-
 //----------------------------------------------------------------------------
 PlusStatus vtkPlusBkProFocusOemVideoSource::InternalUpdate()
 {
-	//Test: Remove this for now. Just send paramaters as part of TrackedFrame, added to FrameFields. 
-	//Setup which parameters to send in xml file.
-
-	//Always send parameter replies
-//	this->ProcessParameterValues();
-	/*if (this->AddParameterReplies() != PLUS_SUCCESS)
-	{
-		LOG_ERROR("Error adding parameter replies on channel " << this->Internal->Channel->GetChannelId());
-		return PLUS_FAIL;
-	}*/
-	
   if (!this->Recording)
   {
     // drop the frame, we are not recording data now
@@ -488,8 +453,6 @@ fclose(f);
   this->Internal->DecodedImageFrame->SetSpacing(GetSpacingX(), GetSpacingY(), spacingZ_mm);//Spacing is not being sent to IGTLink?
 
   this->AddParametersToFrameFields();
-  //if (aSource->AddItem(this->Internal->DecodedImageFrame, aSource->GetInputImageOrientation(), US_IMG_BRIGHTNESS, this->FrameNumber) != PLUS_SUCCESS)
-  //if (aSource->AddItem(this->Internal->DecodedImageFrame, aSource->GetInputImageOrientation(), US_IMG_BRIGHTNESS, this->FrameNumber, UNDEFINED_TIMESTAMP, UNDEFINED_TIMESTAMP, &this->FrameFields) != PLUS_SUCCESS)
   if (aSource->AddItem(this->Internal->DecodedImageFrame, aSource->GetInputImageOrientation(), aSource->GetImageType(), this->FrameNumber, UNDEFINED_TIMESTAMP, UNDEFINED_TIMESTAMP, &this->FrameFields) != PLUS_SUCCESS)
   {
     LOG_ERROR("Error adding item to video source " << aSource->GetSourceId() << " on channel " << this->Internal->Channel->GetChannelId());
@@ -795,7 +758,6 @@ void vtkPlusBkProFocusOemVideoSource::ParseTransducerList(std::istringstream &re
 	std::getline(replyStream, probeName, ',');
 	std::getline(replyStream, probeType, ',');
 	this->SetProbeTypeForPort("C", RemoveQuotationMarks(probeType));
-
 	//Port M
 	std::getline(replyStream, probeName, ',');
 	std::getline(replyStream, probeType, ',');
@@ -805,13 +767,6 @@ void vtkPlusBkProFocusOemVideoSource::ParseTransducerList(std::istringstream &re
 std::string vtkPlusBkProFocusOemVideoSource::ReadBufferIntoString()
 {
 	std::string retval(this->Internal->OemMessage.begin(), this->Internal->OemMessage.end());
-	/*bool stop = false;
-	int readPos = 0;
-
-	while (readPos < this->Internal->OemMessage.size() && this->Internal->OemMessage[readPos] != ';')
-	{
-		retval += this->Internal->OemMessage[readPos++];
-	}*/
 	return retval;
 }
 
@@ -883,41 +838,6 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::SubscribeToParameterChanges()
 	return SendQuery(query);
 }
 
-
-//-----------------------------------------------------------------------------
-// QUERY:B_TRANS_IMAGE_CALIB; //Get only zeroes as return values
-/*PlusStatus vtkPlusBkProFocusOemVideoSource::QueryTransverseImageCalibration()
-{
-	std::string query = "QUERY:B_TRANS_IMAGE_CALIB:A;";
-	LOG_TRACE("Query from vtkPlusBkProFocusOemVideoSource: " << query);
-
-	size_t replyBytes = 100;
-	PlusStatus retval = SendReceiveQuery(query, replyBytes);
-
-	sscanf(&(this->Internal->OemClientReadBuffer[0]), "DATA:B_TRANS_IMAGE_CALIB:A %lf,%lf,%lf,%lf,%lf;",
-		&resolutionX_m, &resolutionY_m, &probeCenterX_m, &probeCenterY_m, &probeRadius_m);
-	LOG_TRACE("Ultrasound geometry. resolutionX_m: " << resolutionX_m << " resolutionY_m: " << resolutionY_m << " probeCenterX_m: " << probeCenterX_m << " probeCenterY_m: " << probeCenterY_m << " probeRadius_m: " << probeRadius_m);
-
-	return retval;
-}
-
-//-----------------------------------------------------------------------------
-// QUERY:B_SAG_IMAGE_CALIB; //Get only zeroes as return values
-PlusStatus vtkPlusBkProFocusOemVideoSource::QuerySagImageCalibration()
-{
-	std::string query = "QUERY:B_SAG_IMAGE_CALIB:A;";
-	LOG_TRACE("Query from vtkPlusBkProFocusOemVideoSource: " << query);
-
-	size_t replyBytes = 100;
-	PlusStatus retval = SendReceiveQuery(query, replyBytes);
-
-	sscanf(&(this->Internal->OemClientReadBuffer[0]), "DATA:B_SAG_IMAGE_CALIB:A %lf,%lf,%lf,%lf,%lf;",
-		&resolutionX_m, &resolutionY_m, &probeCenterX_m, &probeCenterY_m, &probeRadius_m);
-	LOG_TRACE("Ultrasound geometry. resolutionX_m: " << resolutionX_m << " resolutionY_m: " << resolutionY_m << " probeCenterX_m: " << probeCenterX_m << " probeCenterY_m: " << probeCenterY_m << " probeRadius_m: " << probeRadius_m);
-
-	return retval;
-}*/
-
 //-----------------------------------------------------------------------------
 // CONFIG:EVENTS;
 PlusStatus vtkPlusBkProFocusOemVideoSource::ConfigEventsOn()
@@ -937,26 +857,6 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::CommandPowerDopplerOn()
 }
 
 //-----------------------------------------------------------------------------
-/*PlusStatus vtkPlusBkProFocusOemVideoSource::SendReceiveQuery(std::string query, size_t replyBytes)
-{
-	size_t queryWrittenSize = this->Internal->OemClient->Write(query.c_str(), query.size());
-	if (queryWrittenSize != query.size() + 2) // OemClient->Write returns query.size()+2 on a successfully sent event (see #722)
-	{
-		LOG_ERROR("Failed to send query through BK OEM interface (" << query << ")" << queryWrittenSize << " vs " << query.size() << "+2");
-		return PLUS_FAIL;
-	}
-
-	this->Internal->OemClientReadBuffer.resize(replyBytes);
-	size_t numBytesReceived = this->Internal->OemClient->Read(&(this->Internal->OemClientReadBuffer[0]), replyBytes);
-	if (numBytesReceived == 0)
-	{
-		LOG_ERROR("Failed to read response from BK OEM interface");
-		return PLUS_FAIL;
-	}
-	return PLUS_SUCCESS;
-}*/
-
-//-----------------------------------------------------------------------------
 PlusStatus vtkPlusBkProFocusOemVideoSource::SendQuery(std::string query)
 {
 	std::string codedQuery = this->AddSpecialCharacters(query);
@@ -968,6 +868,7 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::SendQuery(std::string query)
 	return PLUS_SUCCESS;
 }
 
+//-----------------------------------------------------------------------------
 std::string vtkPlusBkProFocusOemVideoSource::AddSpecialCharacters(std::string query)
 {
 	std::string retval;
@@ -1234,71 +1135,7 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::DecodePngImage(unsigned char* pngBuf
   return PLUS_SUCCESS;
 }
 
-
-//----------------------------------------------------------------------------
-void vtkPlusBkProFocusOemVideoSource::GetValidParameterNames(std::vector<std::string>& parameterNames)
-{
-	parameterNames.clear();
-	parameterNames.push_back(KEY_DEPTH);
-	parameterNames.push_back(KEY_GAIN);
-
-	parameterNames.push_back(KEY_START_DEPTH);
-	parameterNames.push_back(KEY_STOP_DEPTH);
-	parameterNames.push_back(KEY_START_LINE_X);
-	parameterNames.push_back(KEY_START_LINE_Y);
-	parameterNames.push_back(KEY_STOP_LINE_X);
-	parameterNames.push_back(KEY_STOP_LINE_Y);
-	parameterNames.push_back(KEY_START_LINE_ANGLE);
-	parameterNames.push_back(KEY_STOP_LINE_ANGLE);
-	parameterNames.push_back(KEY_PROBE_TYPE);
-	parameterNames.push_back(KEY_SPACING_X);
-	parameterNames.push_back(KEY_SPACING_Y);
-	parameterNames.push_back(KEY_SECTOR_LEFT_PIXELS);
-	parameterNames.push_back(KEY_SECTOR_RIGHT_PIXELS);
-	parameterNames.push_back(KEY_SECTOR_TOP_PIXELS);
-	parameterNames.push_back(KEY_SECTOR_BOTTOM_PIXELS);
-	parameterNames.push_back(KEY_SECTOR_LEFT_MM);
-	parameterNames.push_back(KEY_SECTOR_RIGHT_MM);
-	parameterNames.push_back(KEY_SECTOR_TOP_MM);
-	parameterNames.push_back(KEY_SECTOR_BOTTOM_MM);
-	//parameterNames.push_back(KEY_SECTOR_INFO);
-}
-
-//----------------------------------------------------------------------------
-PlusStatus vtkPlusBkProFocusOemVideoSource::TriggerParameterAnswers(const std::vector<std::string> parameterNames)
-{
-	LOG_DEBUG("vtkPlusBkProFocusOemVideoSource::TriggerParameterAnswers");
-
-	//Use either the existing variable FieldDataSources or create a new one: ParameterDataSources?
-
-	bool newParameterDataSource = false;
-	vtkSmartPointer<vtkPlusDataSource> parameterDataSource;
-	vtkPlusDataSource* aSource(NULL);
-	if (this->Internal->Channel->GetParameterDataSource(aSource, "GetParameters") != PLUS_SUCCESS)
-	{
-		parameterDataSource = vtkSmartPointer<vtkPlusDataSource>::New();
-		parameterDataSource->SetId("GetParameters");
-		newParameterDataSource = true;
-	}
-	else
-	{
-		parameterDataSource = aSource;
-	}
-	
-	for (unsigned i = 0; i < parameterNames.size(); ++i)
-	{
-		parameterDataSource->SetCustomProperty(parameterNames[i], "update");
-	}
-	parameterDataSource->SetCustomProperty("Processed", "");
-
-	if (newParameterDataSource)
-	{
-		this->Internal->Channel->AddParameterDataSource(parameterDataSource);
-	}
-
-	return PLUS_SUCCESS;
-}
-
+//-----------------------------------------------------------------------------
 PlusStatus vtkPlusBkProFocusOemVideoSource::RequestParametersFromScanner()
 {
 	if (this->QueryImageSize() != PLUS_SUCCESS)
@@ -1333,187 +1170,9 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::RequestParametersFromScanner()
 	return PLUS_SUCCESS;
 }
 
-PlusStatus vtkPlusBkProFocusOemVideoSource::UpdateScannerParameters()
-{
-	if (this->RequestParametersFromScanner() != PLUS_SUCCESS)
-	{
-		//Disable for testing
-#ifndef OFFLINE_TESTING
-		return PLUS_FAIL;
-#endif
-	}
-
-	//this->CurrentImagingParameters->SetValue<std::string>(vtkPlusUsImagingParameters::KEY_DEPTH, this->CalculateDepth());
-	//int test = 1;
-	//this->CurrentImagingParameters->SetValue<int>("testparemeter", test);
-
-	
-	//TODO: Save all parameters in this->CurrentImagingParameters?
-
-	if (this->CurrentImagingParameters->SetDepthMm(this->CalculateDepthMm()) != PLUS_SUCCESS)
-	{
-		return PLUS_FAIL;
-	}
-	if (this->CurrentImagingParameters->SetGainPercent(this->CalculateGain()) != PLUS_SUCCESS)
-	{
-		return PLUS_FAIL;
-	}
-
-
-	return PLUS_SUCCESS;
-}
-
-//Not used for now
-PlusStatus vtkPlusBkProFocusOemVideoSource::ProcessParameterValues(/*std::map<std::string, std::string>& parameters*/)
-{
-	LOG_DEBUG("vtkPlusBkProFocusOemVideoSource::ProcessParameterValues()");
-	//TODO: Implement all parameter answers
-
-	vtkPlusDataSource* aSource(NULL);
-	if (this->Internal->Channel->GetParameterDataSource(aSource, "GetParameters") == PLUS_SUCCESS)
-	{
-		LOG_DEBUG("Got ParameterDataSource GetParameters");
-		//Only process get parameter once
-		if (!aSource->GetCustomProperty("Processed").empty())
-		{
-			return PLUS_FAIL;
-		}
-		LOG_DEBUG("Got new GetParameters request");
-
-		if (this->UpdateScannerParameters() != PLUS_SUCCESS)
-		{
-			//Disable for testing
-#ifndef OFFLINE_TESTING
-			return PLUS_FAIL;
-#endif
-		}
-		
-		if (!aSource->GetCustomProperty(KEY_DEPTH).empty())
-		{
-			LOG_DEBUG("Depth: " << this->CalculateDepthMm());
-			aSource->SetCustomProperty(KEY_DEPTH, PlusCommon::ToString(this->CalculateDepthMm()));
-			//aSource->SetCustomProperty(KEY_DEPTH, PlusCommon::ToString(this->CurrentImagingParameters->GetDepthMm()));
-			//parameters[KEY_DEPTH] = this->CalculateDepth();
-		}
-		if (!aSource->GetCustomProperty(KEY_GAIN).empty())
-		{
-			LOG_DEBUG("Gain: " << this->CalculateGain());
-			aSource->SetCustomProperty(KEY_GAIN, PlusCommon::ToString(this->CalculateGain()));
-			//aSource->SetCustomProperty(KEY_GAIN, PlusCommon::ToString(this->CurrentImagingParameters->GetGainPercent()));
-			
-			//parameters[KEY_GAIN] = this->CalculateGain();
-		}
-
-		if (!aSource->GetCustomProperty(KEY_PROBE_TYPE).empty())
-		{
-			aSource->SetCustomProperty(KEY_PROBE_TYPE, PlusCommon::ToString(this->GetProbeType()));
-		}
-
-		if (!aSource->GetCustomProperty(KEY_START_DEPTH).empty())
-		{
-			aSource->SetCustomProperty(KEY_START_DEPTH, PlusCommon::ToString(this->GetStartDepth()));
-		}
-		if (!aSource->GetCustomProperty(KEY_STOP_DEPTH).empty())
-		{
-			aSource->SetCustomProperty(KEY_STOP_DEPTH, PlusCommon::ToString(this->GetStopDepth()));
-		}
-
-		if (!aSource->GetCustomProperty(KEY_START_LINE_X).empty())
-		{
-			aSource->SetCustomProperty(KEY_START_LINE_X, PlusCommon::ToString(this->GetStartLineX()));
-		}
-		if (!aSource->GetCustomProperty(KEY_START_LINE_Y).empty())
-		{
-			aSource->SetCustomProperty(KEY_START_LINE_Y, PlusCommon::ToString(this->GetStartLineY()));
-		}
-
-		if (!aSource->GetCustomProperty(KEY_STOP_LINE_X).empty())
-		{
-			aSource->SetCustomProperty(KEY_STOP_LINE_X, PlusCommon::ToString(this->GetStopLineX()));
-		}
-		if (!aSource->GetCustomProperty(KEY_STOP_LINE_Y).empty())
-		{
-			aSource->SetCustomProperty(KEY_STOP_LINE_Y, PlusCommon::ToString(this->GetStopLineY()));
-		}
-
-		if (!aSource->GetCustomProperty(KEY_START_LINE_ANGLE).empty())
-		{
-			aSource->SetCustomProperty(KEY_START_LINE_ANGLE, PlusCommon::ToString(this->GetStartLineAngle()));
-		}
-		if (!aSource->GetCustomProperty(KEY_STOP_LINE_ANGLE).empty())
-		{
-			aSource->SetCustomProperty(KEY_STOP_LINE_ANGLE, PlusCommon::ToString(this->GetStopLineAngle()));
-		}
-
-		if (!aSource->GetCustomProperty(KEY_SPACING_X).empty())
-		{
-			aSource->SetCustomProperty(KEY_SPACING_X, PlusCommon::ToString(this->GetSpacingX()));
-		}
-		if (!aSource->GetCustomProperty(KEY_SPACING_Y).empty())
-		{
-			aSource->SetCustomProperty(KEY_SPACING_Y, PlusCommon::ToString(this->GetSpacingY()));
-		}
-
-		if (!aSource->GetCustomProperty(KEY_SECTOR_LEFT_PIXELS).empty())
-		{
-			aSource->SetCustomProperty(KEY_SECTOR_LEFT_PIXELS, PlusCommon::ToString(this->GetSectorLeftPixels()));
-		}
-		if (!aSource->GetCustomProperty(KEY_SECTOR_RIGHT_PIXELS).empty())
-		{
-			aSource->SetCustomProperty(KEY_SECTOR_RIGHT_PIXELS, PlusCommon::ToString(this->GetSectorRightPixels()));
-		}
-		if (!aSource->GetCustomProperty(KEY_SECTOR_TOP_PIXELS).empty())
-		{
-			aSource->SetCustomProperty(KEY_SECTOR_TOP_PIXELS, PlusCommon::ToString(this->GetSectorTopPixels()));
-		}
-		if (!aSource->GetCustomProperty(KEY_SECTOR_BOTTOM_PIXELS).empty())
-		{
-			aSource->SetCustomProperty(KEY_SECTOR_BOTTOM_PIXELS, PlusCommon::ToString(this->GetSectorBottomPixels()));
-		}
-
-		if (!aSource->GetCustomProperty(KEY_SECTOR_LEFT_MM).empty())
-		{
-			aSource->SetCustomProperty(KEY_SECTOR_LEFT_MM, PlusCommon::ToString(this->GetSectorLeftMm()));
-		}
-		if (!aSource->GetCustomProperty(KEY_SECTOR_RIGHT_MM).empty())
-		{
-			aSource->SetCustomProperty(KEY_SECTOR_RIGHT_MM, PlusCommon::ToString(this->GetSectorRightMm()));
-		}
-		if (!aSource->GetCustomProperty(KEY_SECTOR_TOP_MM).empty())
-		{
-			aSource->SetCustomProperty(KEY_SECTOR_TOP_MM, PlusCommon::ToString(this->GetSectorTopMm()));
-		}
-		if (!aSource->GetCustomProperty(KEY_SECTOR_BOTTOM_MM).empty())
-		{
-			aSource->SetCustomProperty(KEY_SECTOR_BOTTOM_MM, PlusCommon::ToString(this->GetSectorBottomMm()));
-		}
-
-		LOG_DEBUG("Add DeviceId: " << this->GetDeviceId());
-		//parameters["DeviceId"] = this->GetDeviceId();
-		aSource->SetCustomProperty("DeviceId", this->GetDeviceId());
-
-		aSource->SetCustomProperty("Processed", "Read");
-	}
-	else
-	{
-		return PLUS_FAIL;
-	}
-
-	return PLUS_SUCCESS;
-}
-
 //----------------------------------------------------------------------------
 PlusStatus vtkPlusBkProFocusOemVideoSource::AddParametersToFrameFields()
 {
-	//Disable for now to test subscribe
-	/*if (this->UpdateScannerParameters() != PLUS_SUCCESS)
-	{
-		//Disable for testing
-#ifndef OFFLINE_TESTING
-		return PLUS_FAIL;
-#endif
-	}*/
-
 	vtkPlusUsDevice::InternalUpdate();// Move to beginning of vtkPlusBkProFocusOemVideoSource::InternalUpdate()?
 
 	this->FrameFields[KEY_DEPTH]            = PlusCommon::ToString(this->CalculateDepthMm());

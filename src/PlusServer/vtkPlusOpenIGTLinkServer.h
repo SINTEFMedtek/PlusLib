@@ -172,8 +172,6 @@ protected:
   /*! Attempt to send any unsent frames to clients, if unsuccessful, accumulate an elapsed time */
   static PlusStatus SendLatestFramesToClients(vtkPlusOpenIGTLinkServer& self, double& elapsedTimeSinceLastPacketSentSec);
 
-  static PlusStatus SendParameterValues(vtkPlusOpenIGTLinkServer& self);
-
   /*! Process the message replies queue and send messages */
   static PlusStatus SendMessageResponses(vtkPlusOpenIGTLinkServer& self);
 

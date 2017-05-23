@@ -74,8 +74,6 @@ public:
   PlusStatus PackMessages(const PlusIgtlClientInfo& clientInfo, std::vector<igtl::MessageBase::Pointer>& igtMessages, PlusTrackedFrame& trackedFrame, 
     bool packValidTransformsOnly, vtkPlusTransformRepository* transformRepository=NULL); 
 
-  PlusStatus PackMessages(const PlusIgtlClientInfo& clientInfo, std::vector<igtl::MessageBase::Pointer>& igtlMessages, std::map<std::string, std::string>& parameters, double timestamp);
-
 protected:
   vtkPlusIgtlMessageFactory();
   virtual ~vtkPlusIgtlMessageFactory();

@@ -83,10 +83,6 @@ public:
   /*! Enable/disable color in the streamed video */
   vtkBooleanMacro(ColorEnabled, bool);
 
-
-  void GetValidParameterNames(std::vector<std::string>& parameterNames);
-  PlusStatus TriggerParameterAnswers(const std::vector<std::string> parameterNames);
-
 protected:
 	static const char* KEY_DEPTH;
 	static const char* KEY_GAIN;
@@ -185,7 +181,6 @@ protected:
   PlusStatus DecodePngImage(unsigned char* pngBuffer, unsigned int pngBufferSize, vtkImageData* decodedImage);
 
   PlusStatus RequestParametersFromScanner();
-  PlusStatus UpdateScannerParameters();
 
   double CalculateDepthMm();
   int CalculateGain();
@@ -210,8 +205,6 @@ protected:
   double GetSectorTopMm();
   double GetSectorBottomMm();
 
-  PlusStatus ProcessParameterValues(/*std::map<std::string, std::string>& parameters*/);
-  PlusStatus AddParameterReplies();
   PlusStatus AddParametersToFrameFields();
 
   /*! Read theOemClientReadBuffer into a string. Discards the ; at the end of the string */
