@@ -625,7 +625,7 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::ReadNextMessage()
 std::vector<char> vtkPlusBkProFocusOemVideoSource::removeSpecialCharacters(std::vector<char> inMessage)
 {
 	std::vector<char> retval;
-	int inPos = 1;//Skip starting character SOH
+	unsigned int inPos = 1;//Skip starting character SOH
 	while (inPos < inMessage.size() - 1)//Skip ending character EOT
 	{
 		if ((inMessage[inPos]) != ESC)
@@ -874,7 +874,7 @@ std::string vtkPlusBkProFocusOemVideoSource::AddSpecialCharacters(std::string qu
 	std::string retval;
 	const char special[] = { SOH, EOT, ESC, 0 }; // 0 is not special, it is an indicator for end of string
 	retval += SOH; //Add start character
-	for (int i = 0; i < query.size(); i++)
+	for (unsigned int i = 0; i < query.size(); i++)
 	{
 		char ch = query[i];
 		if (NULL != strchr(special, ch))
