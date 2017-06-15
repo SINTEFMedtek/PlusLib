@@ -124,7 +124,7 @@ public:
     LOG_ERROR("Missing or invalid " << expectedXmlElementName << " element"); \
     return PLUS_FAIL; \
   } \
-  if ( xmlElementVar->GetName() == NULL || STRCASECMP(xmlElementVar->GetName(),expectedXmlElementName)!=0)  \
+  if ( xmlElementVar->GetName() == NULL || !PlusCommon::IsEqualInsensitive(xmlElementVar->GetName(),expectedXmlElementName))  \
   { \
     LOG_ERROR("Unable to read " << expectedXmlElementName << " element: unexpected name: " << (xmlElementVar->GetName() ? xmlElementVar->GetName() : "(unspecified)")); \
     return PLUS_FAIL; \
@@ -355,11 +355,11 @@ public:
     const char* strValue = xmlElementVar->GetAttribute(#memberVar); \
     if (strValue != NULL) \
     { \
-      if (STRCASECMP(strValue, "TRUE")==0)  \
+      if (PlusCommon::IsEqualInsensitive(strValue, "TRUE"))  \
       { \
         this->Set##memberVar(true); \
       } \
-      else if (STRCASECMP(strValue, "FALSE")==0)  \
+      else if (PlusCommon::IsEqualInsensitive(strValue, "FALSE"))  \
       { \
         this->Set##memberVar(false);  \
       } \
@@ -378,11 +378,11 @@ public:
       const char* strValue = xmlElementVar->GetAttribute(#attributeName); \
       if (strValue != NULL) \
       { \
-        if (STRCASECMP(strValue, "TRUE") == 0)  \
+        if (PlusCommon::IsEqualInsensitive(strValue, "TRUE"))  \
         { \
           var = true; \
         } \
-        else if (STRCASECMP(strValue, "FALSE") == 0)  \
+        else if (PlusCommon::IsEqualInsensitive(strValue, "FALSE"))  \
         { \
           var = false; \
         } \
@@ -400,7 +400,7 @@ public:
     const char* strValue = xmlElementVar->GetAttribute(#memberVar); \
     if (strValue != NULL) \
     { \
-      if (STRCASECMP(strValue, enumString1)==0)  \
+      if (PlusCommon::IsEqualInsensitive(strValue, enumString1))  \
       { \
         this->Set##memberVar(enumValue1); \
       } \
@@ -418,11 +418,11 @@ public:
     const char* strValue = xmlElementVar->GetAttribute(#memberVar); \
     if (strValue != NULL) \
     { \
-      if (STRCASECMP(strValue, enumString1)==0)  \
+      if (PlusCommon::IsEqualInsensitive(strValue, enumString1))  \
       { \
         this->Set##memberVar(enumValue1); \
       } \
-      else if (STRCASECMP(strValue, enumString2)==0)  \
+      else if (PlusCommon::IsEqualInsensitive(strValue, enumString2))  \
       { \
         this->Set##memberVar(enumValue2);  \
       } \
@@ -440,15 +440,15 @@ public:
     const char* strValue = xmlElementVar->GetAttribute(#memberVar); \
     if (strValue != NULL) \
     { \
-      if (STRCASECMP(strValue, enumString1)==0)  \
+      if (PlusCommon::IsEqualInsensitive(strValue, enumString1))  \
       { \
         this->Set##memberVar(enumValue1); \
       } \
-      else if (STRCASECMP(strValue, enumString2)==0)  \
+      else if (PlusCommon::IsEqualInsensitive(strValue, enumString2))  \
       { \
         this->Set##memberVar(enumValue2);  \
       } \
-      else if (STRCASECMP(strValue, enumString3)==0)  \
+      else if (PlusCommon::IsEqualInsensitive(strValue, enumString3))  \
       { \
         this->Set##memberVar(enumValue3);  \
       } \
@@ -466,19 +466,19 @@ public:
     const char* strValue = xmlElementVar->GetAttribute(#memberVar); \
     if (strValue != NULL) \
     { \
-      if (STRCASECMP(strValue, enumString1)==0)  \
+      if (PlusCommon::IsEqualInsensitive(strValue, enumString1))  \
       { \
         this->Set##memberVar(enumValue1); \
       } \
-      else if (STRCASECMP(strValue, enumString2)==0)  \
+      else if (PlusCommon::IsEqualInsensitive(strValue, enumString2))  \
       { \
         this->Set##memberVar(enumValue2);  \
       } \
-      else if (STRCASECMP(strValue, enumString3)==0)  \
+      else if (PlusCommon::IsEqualInsensitive(strValue, enumString3))  \
       { \
         this->Set##memberVar(enumValue3);  \
       } \
-      else if (STRCASECMP(strValue, enumString4)==0)  \
+      else if (PlusCommon::IsEqualInsensitive(strValue, enumString4))  \
       { \
         this->Set##memberVar(enumValue4);  \
       } \
@@ -486,7 +486,41 @@ public:
       { \
         LOG_WARNING("Failed to read enumerated value from " << #memberVar \
           << " attribute of element " << (xmlElementVar->GetName() ? xmlElementVar->GetName() : "(undefined)") \
-          << ": expected '" << enumString1 << "', '" << enumString2 << "', or '" << enumString3 << "', got '" << strValue << "'"); \
+          << ": expected '" << enumString1 << "', '" << enumString2 << "', '" << enumString3 << "', or '" << enumString4 << "', got '" << strValue << "'"); \
+      } \
+    } \
+  }
+
+#define XML_READ_ENUM_ATTRIBUTE_OPTIONAL(memberVar, xmlElementVar, numberToStringConverter, startValue, numberOfValues)  \
+  { \
+    const char* strValue = xmlElementVar->GetAttribute(#memberVar); \
+    if (strValue != NULL) \
+    { \
+      bool strValueValid = false; \
+      for (int value = startValue; value < startValue+numberOfValues; value++) \
+      { \
+        if (PlusCommon::IsEqualInsensitive(strValue, numberToStringConverter(value)))  \
+        { \
+          this->Set##memberVar(value); \
+          strValueValid = true; \
+          break; \
+        } \
+      } \
+      if (!strValueValid) \
+      { \
+        std::ostringstream ss; \
+        ss << "Failed to read enumerated value from " << #memberVar \
+          << " attribute of element " << (xmlElementVar->GetName() ? xmlElementVar->GetName() : "(undefined)") \
+          << ": expected "; \
+        for (int value = startValue; value < startValue + numberOfValues; value++) \
+        { \
+          if (value > startValue) \
+          { \
+            ss << ", ";  \
+          } \
+          ss << "'" << numberToStringConverter(value) << "'";  \
+        } \
+        LOG_WARNING(ss.str()); \
       } \
     } \
   }

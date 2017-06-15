@@ -53,7 +53,7 @@ void vtkPlusStealthLinkCommand::GetCommandNames(std::list<std::string>& cmdNames
 std::string vtkPlusStealthLinkCommand::GetDescription(const std::string& commandName)
 {
   std::string desc;
-  if (commandName.empty() || PlusCommon::iequal(commandName,  GET_STEALTHLINK_EXAM_DATA_CMD))
+  if (commandName.empty() || PlusCommon::IsEqualInsensitive(commandName,  GET_STEALTHLINK_EXAM_DATA_CMD))
   {
     desc += GET_STEALTHLINK_EXAM_DATA_CMD;
     desc += ": Acquire the exam data from the StealthLink Server. The exam data contains the image being displayed on the StealthLink Server. The 3D volume will be constructed using these images";
@@ -62,57 +62,9 @@ std::string vtkPlusStealthLinkCommand::GetDescription(const std::string& command
 }
 
 //----------------------------------------------------------------------------
-std::string vtkPlusStealthLinkCommand::GetStealthLinkDeviceId() const
-{
-  return this->StealthLinkDeviceId;
-}
-
-//----------------------------------------------------------------------------
-void vtkPlusStealthLinkCommand::SetStealthLinkDeviceId(const std::string& stealthLinkDeviceId)
-{
-  this->StealthLinkDeviceId = stealthLinkDeviceId;
-}
-
-//----------------------------------------------------------------------------
-void vtkPlusStealthLinkCommand::SetDicomImagesOutputDirectory(const std::string& dicomImagesOutputDirectory)
-{
-  this->DicomImagesOutputDirectory = dicomImagesOutputDirectory;
-}
-
-//----------------------------------------------------------------------------
-std::string vtkPlusStealthLinkCommand::GetDicomImagesOutputDirectory() const
-{
-  return this->DicomImagesOutputDirectory;
-}
-
-//----------------------------------------------------------------------------
-void vtkPlusStealthLinkCommand::SetVolumeEmbeddedTransformToFrame(const std::string& volumeEmbeddedTransformToFrame)
-{
-  this->VolumeEmbeddedTransformToFrame = volumeEmbeddedTransformToFrame;
-}
-
-//----------------------------------------------------------------------------
-std::string vtkPlusStealthLinkCommand::GetVolumeEmbeddedTransformToFrame() const
-{
-  return this->VolumeEmbeddedTransformToFrame;
-}
-
-//----------------------------------------------------------------------------
 void vtkPlusStealthLinkCommand::SetNameToGetExam()
 {
   this->SetName(GET_STEALTHLINK_EXAM_DATA_CMD);
-}
-
-//----------------------------------------------------------------------------
-void vtkPlusStealthLinkCommand::SetKeepReceivedDicomFiles(bool keepReceivedDicomFiles)
-{
-  this->KeepReceivedDicomFiles = keepReceivedDicomFiles;
-}
-
-//----------------------------------------------------------------------------
-bool vtkPlusStealthLinkCommand::GetKeepReceivedDicomFiles()
-{
-  return this->KeepReceivedDicomFiles;
 }
 
 //----------------------------------------------------------------------------
@@ -185,7 +137,7 @@ PlusStatus vtkPlusStealthLinkCommand::Execute()
     return PLUS_FAIL;
   }
 
-  if (PlusCommon::iequal(this->Name, GET_STEALTHLINK_EXAM_DATA_CMD))
+  if (PlusCommon::IsEqualInsensitive(this->Name, GET_STEALTHLINK_EXAM_DATA_CMD))
   {
     LOG_INFO("Acquiring the exam data from StealthLink Server: Device ID: " << GetStealthLinkDeviceId());
 

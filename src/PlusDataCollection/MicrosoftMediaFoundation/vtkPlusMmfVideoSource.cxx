@@ -189,13 +189,13 @@ STDMETHODIMP MmfVideoSourceReader::OnReadSample(HRESULT hrStatus, DWORD dwStream
     GUID videoFormat = DEFAULT_PIXEL_TYPE;
     pType->GetGUID(MF_MT_SUBTYPE, &videoFormat);
     std::wstring videoFormatWStr = MfVideoCapture::FormatReader::StringFromGUID(videoFormat);
-    if (videoFormatWStr.compare(0, MF_VIDEO_FORMAT_PREFIX.size(), MF_VIDEO_FORMAT_PREFIX) == 0)
+    if (PlusCommon::HasSubstrInsensitive(videoFormatWStr, MF_VIDEO_FORMAT_PREFIX))
     {
       // found standard prefix, remove it
       videoFormatWStr.erase(0, MF_VIDEO_FORMAT_PREFIX.size());
     }
 
-    if (videoFormatWStr.compare(this->PlusDevice->ActiveVideoFormat.PixelFormatName) != 0)
+    if (!PlusCommon::IsEqualInsensitive(videoFormatWStr, this->PlusDevice->ActiveVideoFormat.PixelFormatName))
     {
       LOG_ERROR_W("Unexpected video format: " << videoFormatWStr << " (expected: " << this->PlusDevice->ActiveVideoFormat.PixelFormatName << ")");
       return S_FALSE;
@@ -253,7 +253,7 @@ vtkPlusMmfVideoSource::vtkPlusMmfVideoSource()
   this->MmfSourceReader = new MmfVideoSourceReader(this);
   this->RequireImageOrientationInConfiguration = true;
 
-  this->AcquisitionRate = vtkPlusDevice::VIRTUAL_DEVICE_FRAME_RATE;
+  this->AcquisitionRate = DEFAULT_ACQUISITION_RATE;
 
   this->RequestedVideoFormat.DeviceId = DEFAULT_DEVICE_ID;
   this->RequestedVideoFormat.StreamIndex = 0;
@@ -518,7 +518,8 @@ PlusStatus vtkPlusMmfVideoSource::WriteConfiguration(vtkXMLDataElement* rootConf
   {
     XML_REMOVE_ATTRIBUTE(deviceConfig, "CaptureStreamIndex");
   }
-  deviceConfig->SetVectorAttribute("FrameSize", 2, this->RequestedVideoFormat.FrameSize);
+  int frameSize[2] = { static_cast<int>(this->RequestedVideoFormat.FrameSize[0]), static_cast<int>(this->RequestedVideoFormat.FrameSize[1]) };
+  deviceConfig->SetVectorAttribute("FrameSize", 2, frameSize);
   auto attr = std::string(this->RequestedVideoFormat.PixelFormatName.begin(), this->RequestedVideoFormat.PixelFormatName.end());
   deviceConfig->SetAttribute("VideoFormat", attr.c_str());
 
@@ -538,7 +539,7 @@ void vtkPlusMmfVideoSource::SetRequestedStreamIndex(unsigned int streamIndex)
 }
 
 //----------------------------------------------------------------------------
-void vtkPlusMmfVideoSource::SetRequestedFrameSize(int frameSize[2])
+void vtkPlusMmfVideoSource::SetRequestedFrameSize(unsigned int frameSize[2])
 {
   this->RequestedVideoFormat.FrameSize[0] = frameSize[0];
   this->RequestedVideoFormat.FrameSize[1] = frameSize[1];
@@ -568,7 +569,7 @@ void vtkPlusMmfVideoSource::GetListOfCaptureVideoFormats(std::vector<std::wstrin
     {
       MfVideoCapture::MediaType type = MfVideoCapture::MediaFoundationVideoCaptureApi::GetInstance().GetFormat(deviceId, streamIndex, formatIndex);
       std::wstring pixelType(type.MF_MT_SUBTYPEName.begin(), type.MF_MT_SUBTYPEName.end());
-      if (pixelType.compare(0, MF_VIDEO_FORMAT_PREFIX.size(), MF_VIDEO_FORMAT_PREFIX) == 0)
+      if (PlusCommon::HasSubstrInsensitive(pixelType, MF_VIDEO_FORMAT_PREFIX))
       {
         // found standard prefix, remove it
         pixelType.erase(0, MF_VIDEO_FORMAT_PREFIX.size());
@@ -614,7 +615,7 @@ PlusStatus vtkPlusMmfVideoSource::AddFrame(unsigned char* bufferData, DWORD buff
 
   PlusStatus decodingStatus(PLUS_SUCCESS);
   PixelCodec::PixelEncoding encoding(PixelCodec::PixelEncoding_ERROR);
-  if (this->ActiveVideoFormat.PixelFormatName.compare(L"YUY2") == 0)
+  if (PlusCommon::IsEqualInsensitive(this->ActiveVideoFormat.PixelFormatName, L"YUY2"))
   {
     if (bufferSize < frameSize[0] * frameSize[1] * 2)
     {
@@ -623,11 +624,11 @@ PlusStatus vtkPlusMmfVideoSource::AddFrame(unsigned char* bufferData, DWORD buff
     }
     encoding = PixelCodec::PixelEncoding_YUY2;
   }
-  else if (this->ActiveVideoFormat.PixelFormatName.compare(L"MJPG") == 0)
+  else if (PlusCommon::IsEqualInsensitive(this->ActiveVideoFormat.PixelFormatName, L"MJPG"))
   {
     encoding = PixelCodec::PixelEncoding_MJPG;
   }
-  else if (this->ActiveVideoFormat.PixelFormatName.compare(L"RGB24") == 0)
+  else if (PlusCommon::IsEqualInsensitive(this->ActiveVideoFormat.PixelFormatName, L"RGB24"))
   {
     if (bufferSize < frameSize[0] * frameSize[1] * 3)
     {

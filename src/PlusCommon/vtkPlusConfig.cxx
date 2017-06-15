@@ -251,7 +251,7 @@ PlusStatus vtkPlusConfig::LoadApplicationConfiguration()
   this->SetApplicationConfigurationData(applicationConfigurationRoot);
 
   // Verify root element name
-  if (STRCASECMP(applicationConfigurationRoot->GetName(), "PlusConfig") != 0)
+  if (!PlusCommon::IsEqualInsensitive(applicationConfigurationRoot->GetName(), "PlusConfig"))
   {
     LOG_ERROR("Invalid application configuration file (root XML element of the file '" << applicationConfigurationFilePath << "' should be 'PlusConfig' instead of '" << applicationConfigurationRoot->GetName() << "')");
     return PLUS_FAIL;
@@ -497,7 +497,7 @@ PlusStatus vtkPlusConfig::SaveApplicationConfigurationToFile()
   }
 
   std::string applicationConfigurationFilePath = vtksys::SystemTools::CollapseFullPath(APPLICATION_CONFIGURATION_FILE_NAME, this->ProgramDirectory.c_str());
-  PlusCommon::PrintXML(applicationConfigurationFilePath.c_str(), this->ApplicationConfigurationData);
+  PlusCommon::XML::PrintXML(applicationConfigurationFilePath.c_str(), this->ApplicationConfigurationData);
 
   LOG_DEBUG("Application configuration file '" << applicationConfigurationFilePath << "' saved");
 
@@ -1021,12 +1021,6 @@ std::string vtkPlusConfig::GetDeviceSetConfigurationFileName()
 }
 
 //-----------------------------------------------------------------------------
-std::string vtkPlusConfig::GetApplicationStartTimestamp()
-{
-  return this->ApplicationStartTimestamp;
-}
-
-//-----------------------------------------------------------------------------
 void vtkPlusConfig::SetDeviceSetConfigurationData(vtkXMLDataElement* deviceSetConfigurationData)
 {
   vtkSetObjectBodyMacro(DeviceSetConfigurationData, vtkXMLDataElement, deviceSetConfigurationData);
@@ -1035,18 +1029,6 @@ void vtkPlusConfig::SetDeviceSetConfigurationData(vtkXMLDataElement* deviceSetCo
     std::string plusLibVersion = PlusCommon::GetPlusLibVersionString();
     this->DeviceSetConfigurationData->SetAttribute("PlusRevision", plusLibVersion.c_str());
   }
-}
-
-//----------------------------------------------------------------------------
-std::string vtkPlusConfig::GetEditorApplicationExecutable() const
-{
-  return this->EditorApplicationExecutable;
-}
-
-//----------------------------------------------------------------------------
-void vtkPlusConfig::SetEditorApplicationExecutable(const std::string& _arg)
-{
-  this->EditorApplicationExecutable = _arg;
 }
 
 //-----------------------------------------------------------------------------

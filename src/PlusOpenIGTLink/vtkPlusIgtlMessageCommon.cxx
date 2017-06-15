@@ -4,18 +4,22 @@ Copyright (c) Laboratory for Percutaneous Surgery. All rights reserved.
 See License.txt for details.
 =========================================================Plus=header=end*/
 
+// Local includes
 #include "PlusConfigure.h"
-
-#include "vtkPlusIgtlMessageCommon.h"
-
 #include "PlusTrackedFrame.h"
 #include "PlusVideoFrame.h"
-#include "vtkImageData.h"
-#include "vtkMatrix4x4.h"
-#include "vtkObjectFactory.h"
+#include "vtkPlusIgtlMessageCommon.h"
 #include "vtkPlusTrackedFrameList.h"
 #include "vtkPlusTransformRepository.h"
-#include "vtkTransform.h"
+
+// VTK includes
+#include <vtkImageData.h>
+#include <vtkMatrix4x4.h>
+#include <vtkObjectFactory.h>
+#include <vtkTransform.h>
+
+// OpenIGTLink includes
+#include <igtl_tdata.h>
 
 //----------------------------------------------------------------------------
 
@@ -615,7 +619,8 @@ PlusStatus vtkPlusIgtlMessageCommon::PackTrackingDataMessage(igtl::TrackingDataM
     }
 
     igtl::TrackingDataElement::Pointer trackElement = igtl::TrackingDataElement::New();
-    trackElement->SetName(transformIterator->first.c_str());
+    std::string shortenedName = transformIterator->first.empty() ? "UnknownToUnknown" : transformIterator->first.substr(0, IGTL_TDATA_LEN_NAME);
+    trackElement->SetName(shortenedName.c_str());
     trackElement->SetType(igtl::TrackingDataElement::TYPE_6D);
     trackElement->SetMatrix(matrix);
     trackingDataMessage->AddTrackingDataElement(trackElement);

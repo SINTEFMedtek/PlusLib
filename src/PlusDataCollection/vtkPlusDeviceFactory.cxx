@@ -43,6 +43,9 @@ See License.txt for details.
 #ifdef PLUS_USE_INTELREALSENSE
 #include "vtkPlusIntelRealSenseTracker.h"
 #endif
+#ifdef PLUS_USE_OPTICAL_MARKER_TRACKER
+#include "vtkPlusOpticalMarkerTracker.h"
+#endif
 #ifdef PLUS_USE_STEALTHLINK
 #include "vtkPlusStealthLinkTracker.h"
 #endif
@@ -73,6 +76,9 @@ See License.txt for details.
 #ifdef PLUS_USE_3dConnexion_TRACKER
 // 3dConnexion tracker is supported on Windows only
 #include "vtkPlus3dConnexionTracker.h"
+#endif
+#ifdef PLUS_USE_AGILENT
+#include "vtkPlusAgilentScopeTracker.h"
 #endif
 
 //----------------------------------------------------------------------------
@@ -112,6 +118,9 @@ See License.txt for details.
 #include "vtkPlusIntersonSDKCxxVideoSource.h"
 #endif
 
+#ifdef PLUS_USE_INTERSONARRAYSDKCXX_VIDEO
+#include "vtkPlusIntersonArraySDKCxxVideoSource.h"
+#endif
 
 #ifdef PLUS_USE_TELEMED_VIDEO
 #include "Telemed\vtkPlusTelemedVideoSource.h"
@@ -139,6 +148,10 @@ See License.txt for details.
 
 #ifdef PLUS_USE_CAPISTRANO_VIDEO
 #include "Capistrano\vtkPlusCapistranoVideoSource.h"
+#endif
+
+#ifdef PLUS_USE_WINPROBE_VIDEO
+#include "WinProbe\vtkPlusWinProbeVideoSource.h"
 #endif
 
 #ifdef PLUS_USE_NVIDIA_DVP
@@ -191,6 +204,9 @@ vtkPlusDeviceFactory::vtkPlusDeviceFactory()
 #endif
 #ifdef PLUS_USE_INTELREALSENSE
   RegisterDevice("IntelRealSenseTracker", "vtkPlusIntelRealSenseTracker", (PointerToDevice)&vtkPlusIntelRealSenseTracker::New);
+#endif
+#ifdef PLUS_USE_OPTICAL_MARKER_TRACKER
+  RegisterDevice("OpticalMarkerTracker", "vtkPlusOpticalMarkerTracker", (PointerToDevice)&vtkPlusOpticalMarkerTracker::New);
 #endif
 #ifdef PLUS_USE_STEALTHLINK
   RegisterDevice("StealthLinkTracker", "vtkPlusStealthLinkTracker", (PointerToDevice)&vtkPlusStealthLinkTracker::New);
@@ -245,6 +261,9 @@ vtkPlusDeviceFactory::vtkPlusDeviceFactory()
 #ifdef PLUS_USE_INTERSONSDKCXX_VIDEO
   RegisterDevice("IntersonSDKCxxVideo", "vtkPlusIntersonSDKCxxVideoSource", (PointerToDevice)&vtkPlusIntersonSDKCxxVideoSource::New);
 #endif
+#ifdef PLUS_USE_INTERSONARRAYSDKCXX_VIDEO
+  RegisterDevice("IntersonArraySDKCxxVideo", "vtkPlusIntersonArraySDKCxxVideoSource", (PointerToDevice)&vtkPlusIntersonArraySDKCxxVideoSource::New);
+#endif
 #ifdef PLUS_USE_TELEMED_VIDEO
   RegisterDevice("TelemedVideo", "vtkPlusTelemedVideoSource", (PointerToDevice)&vtkPlusTelemedVideoSource::New);
 #endif
@@ -266,6 +285,11 @@ vtkPlusDeviceFactory::vtkPlusDeviceFactory()
 #ifdef PLUS_USE_CAPISTRANO_VIDEO
   RegisterDevice("CapistranoVideo", "vtkPlusCapistranoVideoSource", (PointerToDevice)&vtkPlusCapistranoVideoSource::New);
 #endif
+
+#ifdef PLUS_USE_WINPROBE_VIDEO
+  RegisterDevice("WinProbeVideo", "vtkPlusWinProbeVideoSource", (PointerToDevice)&vtkPlusWinProbeVideoSource::New);
+#endif
+
 #ifdef PLUS_USE_tesseract
   RegisterDevice("VirtualTextRecognizer", "vtkPlusVirtualTextRecognizer", (PointerToDevice)&vtkPlusVirtualTextRecognizer::New);
 #endif
@@ -276,12 +300,16 @@ vtkPlusDeviceFactory::vtkPlusDeviceFactory()
 #ifdef PLUS_USE_OvrvisionPro
   RegisterDevice("OvrvisionPro", "vtkPlusOvrvisionProVideoSource", (PointerToDevice)&vtkPlusOvrvisionProVideoSource::New);
 #endif
+#ifdef PLUS_USE_AGILENT
+  RegisterDevice("AgilentScope", "vtkPlusAgilentScopeTracker", (PointerToDevice)&vtkPlusAgilentScopeTracker::New);
+#endif
 
   // Virtual Devices
   RegisterDevice("VirtualMixer", "vtkPlusVirtualMixer", (PointerToDevice)&vtkPlusVirtualMixer::New);
   RegisterDevice("VirtualSwitcher", "vtkPlusVirtualSwitcher", (PointerToDevice)&vtkPlusVirtualSwitcher::New);
   RegisterDevice("VirtualCapture", "vtkPlusVirtualCapture", (PointerToDevice)&vtkPlusVirtualCapture::New);
-  RegisterDevice("VirtualBufferedCapture", "vtkPlusVirtualCapture", (PointerToDevice)&vtkPlusVirtualCapture::New);
+  RegisterDevice("VirtualDiscCapture", "vtkPlusVirtualCapture", (PointerToDevice)&vtkPlusVirtualCapture::New); // for backward compatibility
+  RegisterDevice("VirtualBufferedCapture", "vtkPlusVirtualCapture", (PointerToDevice)&vtkPlusVirtualCapture::New); // for backward compatibility
   RegisterDevice("VirtualVolumeReconstructor", "vtkPlusVirtualVolumeReconstructor", (PointerToDevice)&vtkPlusVirtualVolumeReconstructor::New);
 }
 

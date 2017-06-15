@@ -12,6 +12,9 @@ ENDIF()
 # Try to find ITK and include its settings (otherwise complain)
 FIND_PACKAGE (ITK REQUIRED PATHS ${ITK_DIR} NO_DEFAULT_PATH)
 IF(ITK_FOUND)
+  IF(ITK_NO_IO_FACTORY_REGISTER_MANAGER)
+    MESSAGE("ITK_NO_IO_FACTORY_REGISTER_MANAGER is true, disabling default I/O factory manager")
+  ENDIF()
   INCLUDE(${ITK_USE_FILE})
 ELSE()
   MESSAGE(FATAL_ERROR "This application requires ITK. One of these components is missing. Please verify configuration")
@@ -27,17 +30,17 @@ IF(PLUS_USE_OpenIGTLink)
     MESSAGE(FATAL_ERROR "PLUS requires a build of OpenIGTLink with v3 support enabled.")
   ENDIF()
 
-  SET(PLUS_OPENIGTLINK_VERSION "${OpenIGTLink_VERSION_MAJOR}.${OpenIGTLink_VERSION_MINOR}.${OpenIGTLink_VERSION_PATCH}" )
+  SET(PLUS_OPENIGTLINK_VERSION "${OpenIGTLink_VERSION_MAJOR}.${OpenIGTLink_VERSION_MINOR}.${OpenIGTLink_VERSION_PATCH}")
   SET(PLUS_OPENIGTLINK_VERSION_MAJOR "${OpenIGTLink_VERSION_MAJOR}")
   SET(PLUS_OPENIGTLINK_VERSION_MINOR "${OpenIGTLink_VERSION_MINOR}")
   SET(PLUS_OPENIGTLINK_VERSION_PATCH "${OpenIGTLink_VERSION_PATCH}")
-  
+
   FIND_PACKAGE(OpenIGTLinkIO REQUIRED NO_MODULE)
 ENDIF()
 
 # --------------------------------------------------------------------------
 # Options
-OPTION(BUILD_SHARED_LIBS "Build with shared libraries." ${VTK_BUILD_SHARED_LIBS} ${ITK_BUILD_SHARED_LIBS} )
+OPTION(BUILD_SHARED_LIBS "Build with shared libraries." ${VTK_BUILD_SHARED_LIBS} ${ITK_BUILD_SHARED_LIBS})
 
 # --------------------------------------------------------------------------
 # Use accurate or simple timer protocol
@@ -127,7 +130,7 @@ MACRO(GENERATE_HELP_DOC TARGET_NAME)
       WORKING_DIRECTORY ${PLUS_EXECUTABLE_OUTPUT_PATH}/Doc/Help
       )
       INSTALL(FILES "${PLUS_EXECUTABLE_OUTPUT_PATH}/Doc/Help/${TARGET_NAME}Help.txt"
-        CONFIGURATIONS Release DESTINATION "${PLUSLIB_SHARE_INSTALL}/doc")
+        DESTINATION "${PLUSLIB_SHARE_INSTALL}/doc")
   ENDIF()
 ENDMACRO()
 
@@ -155,11 +158,11 @@ ENDMACRO()
 
 # PLUSLIB_DEPENDENCIES contain all the exported targets that will be
 # available to applications that use PlusLib
-SET(PLUSLIB_DEPENDENCIES "" CACHE INTERNAL "" )
+SET(PLUSLIB_DEPENDENCIES "" CACHE INTERNAL "")
 
 # PLUSLIB_INCLUDE_DIRS contain all the include directories that will be
 # available to applications that use PlusLib
-SET(PLUSLIB_INCLUDE_DIRS "" CACHE INTERNAL "" )
+SET(PLUSLIB_INCLUDE_DIRS "" CACHE INTERNAL "")
 
 # PLUSLIB_INSTALL_INCLUDE_FILES contains the include files to install with the build
 SET(PLUSLIB_INSTALL_INCLUDE_FILES )
@@ -173,12 +176,12 @@ SET(OPENIGTLINKIO_CONFIG_CODE "")
 # --------------------------------------------------------------------------
 # Current directory
 
-SET (BASIC_INCLUDE_DIRS
+SET(BASIC_INCLUDE_DIRS
   "${CMAKE_CURRENT_SOURCE_DIR}"
   "${CMAKE_CURRENT_BINARY_DIR}"
   )
-INCLUDE_DIRECTORIES( ${BASIC_INCLUDE_DIRS} )
-SET(PLUSLIB_INCLUDE_DIRS ${PLUSLIB_INCLUDE_DIRS} ${BASIC_INCLUDE_DIRS} CACHE INTERNAL "" )
+INCLUDE_DIRECTORIES(${BASIC_INCLUDE_DIRS})
+SET(PLUSLIB_INCLUDE_DIRS ${PLUSLIB_INCLUDE_DIRS} ${BASIC_INCLUDE_DIRS} CACHE INTERNAL "")
 
 # --------------------------------------------------------------------------
 # Subdirectories
@@ -190,54 +193,62 @@ SET(PLUSLIB_INCLUDE_DIRS ${PLUSLIB_INCLUDE_DIRS} ${BASIC_INCLUDE_DIRS} CACHE INT
 # vcProj_...
 # PLUSLIB_DEPENDENCIES
 
+IF(PLUS_USE_SYSTEM_ZLIB) # setting PlusZLib needs to come before processing subdirectories
+  SET(PlusZLib ${ZLIB_LIBRARY})
+  INCLUDE_DIRECTORIES(${ZLIB_INCLUDE_DIR})
+  LIST(APPEND PLUSLIB_INCLUDE_DIRS ${ZLIB_INCLUDE_DIR} CACHE INTERNAL "")
+ELSE()
+  SET(PlusZLib vtkzlib)
+ENDIF()
+
 IF(PLUS_BUILD_WIDGETS)
   ADD_SUBDIRECTORY(PlusWidgets)
-  INCLUDE_DIRECTORIES( ${PlusWidgets_INCLUDE_DIRS} )
-  LIST(APPEND PLUSLIB_INCLUDE_DIRS ${PlusWidgets_INCLUDE_DIRS} CACHE INTERNAL "" )
+  INCLUDE_DIRECTORIES(${PlusWidgets_INCLUDE_DIRS})
+  LIST(APPEND PLUSLIB_INCLUDE_DIRS ${PlusWidgets_INCLUDE_DIRS} CACHE INTERNAL "")
 ENDIF()
 
 ADD_SUBDIRECTORY(Utilities)
-INCLUDE_DIRECTORIES( ${Utilities_INCLUDE_DIRS} )
-LIST(APPEND PLUSLIB_INCLUDE_DIRS ${Utilities_INCLUDE_DIRS} CACHE INTERNAL "" )
+INCLUDE_DIRECTORIES(${Utilities_INCLUDE_DIRS})
+LIST(APPEND PLUSLIB_INCLUDE_DIRS ${Utilities_INCLUDE_DIRS} CACHE INTERNAL "")
 
 ADD_SUBDIRECTORY(PlusCommon)
-INCLUDE_DIRECTORIES( ${PlusCommon_INCLUDE_DIRS} )
-LIST(APPEND PLUSLIB_INCLUDE_DIRS ${PlusCommon_INCLUDE_DIRS} CACHE INTERNAL "" )
+INCLUDE_DIRECTORIES(${PlusCommon_INCLUDE_DIRS})
+LIST(APPEND PLUSLIB_INCLUDE_DIRS ${PlusCommon_INCLUDE_DIRS} CACHE INTERNAL "")
 
 ADD_SUBDIRECTORY(PlusRendering)
-INCLUDE_DIRECTORIES( ${PlusRendering_INCLUDE_DIRS} )
-LIST(APPEND PLUSLIB_INCLUDE_DIRS ${PlusRendering_INCLUDE_DIRS} CACHE INTERNAL "" )
+INCLUDE_DIRECTORIES(${PlusRendering_INCLUDE_DIRS})
+LIST(APPEND PLUSLIB_INCLUDE_DIRS ${PlusRendering_INCLUDE_DIRS} CACHE INTERNAL "")
 
 IF(PLUS_USE_OpenIGTLink)
   ADD_SUBDIRECTORY(PlusOpenIGTLink)
-  INCLUDE_DIRECTORIES( ${PlusOpenIGTLink_INCLUDE_DIRS} )
-  LIST(APPEND PLUSLIB_INCLUDE_DIRS ${PlusOpenIGTLink_INCLUDE_DIRS} CACHE INTERNAL "" )
+  INCLUDE_DIRECTORIES(${PlusOpenIGTLink_INCLUDE_DIRS})
+  LIST(APPEND PLUSLIB_INCLUDE_DIRS ${PlusOpenIGTLink_INCLUDE_DIRS} CACHE INTERNAL "")
 ENDIF()
 
 ADD_SUBDIRECTORY(PlusImageProcessing)
-INCLUDE_DIRECTORIES( ${PlusImageProcessing_INCLUDE_DIRS} )
-LIST(APPEND PLUSLIB_INCLUDE_DIRS ${PlusImageProcessing_INCLUDE_DIRS} CACHE INTERNAL "" )
+INCLUDE_DIRECTORIES(${PlusImageProcessing_INCLUDE_DIRS})
+LIST(APPEND PLUSLIB_INCLUDE_DIRS ${PlusImageProcessing_INCLUDE_DIRS} CACHE INTERNAL "")
 
 ADD_SUBDIRECTORY(PlusUsSimulator)
-INCLUDE_DIRECTORIES( ${PlusUsSimulator_INCLUDE_DIRS} )
-LIST(APPEND PLUSLIB_INCLUDE_DIRS ${PlusUsSimulator_INCLUDE_DIRS} CACHE INTERNAL "" )
+INCLUDE_DIRECTORIES(${PlusUsSimulator_INCLUDE_DIRS})
+LIST(APPEND PLUSLIB_INCLUDE_DIRS ${PlusUsSimulator_INCLUDE_DIRS} CACHE INTERNAL "")
 
 ADD_SUBDIRECTORY(PlusVolumeReconstruction)
-INCLUDE_DIRECTORIES( ${PlusVolumeReconstruction_INCLUDE_DIRS} )
-LIST(APPEND PLUSLIB_INCLUDE_DIRS ${PlusVolumeReconstruction_INCLUDE_DIRS} CACHE INTERNAL "" )
+INCLUDE_DIRECTORIES(${PlusVolumeReconstruction_INCLUDE_DIRS})
+LIST(APPEND PLUSLIB_INCLUDE_DIRS ${PlusVolumeReconstruction_INCLUDE_DIRS} CACHE INTERNAL "")
 
 ADD_SUBDIRECTORY(PlusDataCollection)
-INCLUDE_DIRECTORIES( ${PlusDataCollection_INCLUDE_DIRS} )
-LIST(APPEND PLUSLIB_INCLUDE_DIRS ${PlusDataCollection_INCLUDE_DIRS} CACHE INTERNAL "" )
+INCLUDE_DIRECTORIES(${PlusDataCollection_INCLUDE_DIRS})
+LIST(APPEND PLUSLIB_INCLUDE_DIRS ${PlusDataCollection_INCLUDE_DIRS} CACHE INTERNAL "")
 
 ADD_SUBDIRECTORY(PlusCalibration)
-INCLUDE_DIRECTORIES( ${PlusCalibration_INCLUDE_DIRS} )
-LIST(APPEND PLUSLIB_INCLUDE_DIRS ${PlusCalibration_INCLUDE_DIRS} CACHE INTERNAL "" )
+INCLUDE_DIRECTORIES(${PlusCalibration_INCLUDE_DIRS})
+LIST(APPEND PLUSLIB_INCLUDE_DIRS ${PlusCalibration_INCLUDE_DIRS} CACHE INTERNAL "")
 
 IF(PLUS_USE_OpenIGTLink)
   ADD_SUBDIRECTORY(PlusServer)
-  INCLUDE_DIRECTORIES( ${PlusServer_INCLUDE_DIRS} )
-  LIST(APPEND PLUSLIB_INCLUDE_DIRS ${PlusServer_INCLUDE_DIRS} CACHE INTERNAL "" )
+  INCLUDE_DIRECTORIES(${PlusServer_INCLUDE_DIRS})
+  LIST(APPEND PLUSLIB_INCLUDE_DIRS ${PlusServer_INCLUDE_DIRS} CACHE INTERNAL "")
 ENDIF()
 
 ADD_SUBDIRECTORY(scripts)
@@ -248,7 +259,6 @@ CONFIGURE_FILE(
   ${CMAKE_CURRENT_SOURCE_DIR}/PlusConfigure.h.in
   ${CMAKE_CURRENT_BINARY_DIR}/PlusConfigure.h
   )
-LIST(APPEND PLUSLIB_INCLUDE_DIRS "${CMAKE_CURRENT_BINARY_DIR}/PlusConfigure.h")
 CONFIGURE_FILE(
   ${CMAKE_CURRENT_SOURCE_DIR}/PlusConfigure.h.in
   ${CMAKE_BINARY_DIR}/PlusConfigure.h
@@ -257,9 +267,8 @@ CONFIGURE_FILE(
   ${CMAKE_CURRENT_SOURCE_DIR}/PlusRevision.h.in
   ${CMAKE_CURRENT_BINARY_DIR}/PlusRevision.h
   )
-LIST(APPEND PLUSLIB_INCLUDE_DIRS "${CMAKE_CURRENT_BINARY_DIR}/PlusRevision.h")
 
-INSTALL(FILES 
+INSTALL(FILES
   ${CMAKE_BINARY_DIR}/PlusConfigure.h
   ${CMAKE_CURRENT_BINARY_DIR}/PlusRevision.h
   DESTINATION ${PLUSLIB_INCLUDE_INSTALL}
@@ -287,22 +296,22 @@ export(PACKAGE PlusLib)
 
 #----------------------------------------------------------------------------
 # Append entries for export
-IF( PLUS_USE_EPIPHAN )
+IF(PLUS_USE_EPIPHAN )
   LIST(APPEND PLUSLIB_DEPENDENCIES Epiphan)
 ENDIF()
-IF( PLUS_USE_Ascension3DG )
+IF(PLUS_USE_Ascension3DG )
   LIST(APPEND PLUSLIB_DEPENDENCIES Ascension3DG)
 ENDIF()
-IF( PLUS_USE_Ascension3DGm )
+IF(PLUS_USE_Ascension3DGm )
   LIST(APPEND PLUSLIB_DEPENDENCIES Ascension3DGm)
 ENDIF()
-IF( PLUS_USE_PHIDGET_SPATIAL_TRACKER )
+IF(PLUS_USE_PHIDGET_SPATIAL_TRACKER )
   LIST(APPEND PLUSLIB_DEPENDENCIES phidget)
 ENDIF()
-IF( PLUS_USE_BRACHY_TRACKER )
+IF(PLUS_USE_BRACHY_TRACKER )
   LIST(APPEND PLUSLIB_DEPENDENCIES USDigitalEncoders)
 ENDIF()
-IF( PLUS_USE_NVIDIA_DVP )
+IF(PLUS_USE_NVIDIA_DVP )
   LIST(APPEND PLUSLIB_DEPENDENCIES NVidiaDVP)
   LIST(APPEND PLUSLIB_DEPENDENCIES QuadroSDI)
 ENDIF()
@@ -311,24 +320,28 @@ ENDIF()
 SET(PLUSLIB_CONFIG_CODE "SET(PlusLib_TARGETS_FILE \"${CMAKE_BINARY_DIR}/PlusLibTargets.cmake\")\n")
 SET(VTK_CONFIG_DIR ${VTK_DIR})
 SET(ITK_CONFIG_DIR ${ITK_DIR})
-SET(PLUSLIB_CONFIG_USEFILE "${CMAKE_BINARY_DIR}/UsePlusLib.cmake" )
+SET(PLUSLIB_CONFIG_USEFILE "${CMAKE_BINARY_DIR}/UsePlusLib.cmake")
 
-# Create a PlusConfig.cmake file for the use from the build tree
+# Create a PlusConfig.cmake and PlusConfigVersion.cmake file for the use from the build tree
 #-----------------------------------------------------------------------------
+INCLUDE(CMakePackageConfigHelpers)
 # Re: #1075 eventually remove this section after people are used to the new location
 CONFIGURE_FILE(PlusLibConfig.cmake.in
   "${CMAKE_CURRENT_BINARY_DIR}/PlusLibConfig.cmake" @ONLY)
-CONFIGURE_FILE(PlusLibConfigVersion.cmake.in
-  "${CMAKE_CURRENT_BINARY_DIR}/PlusLibConfigVersion.cmake" @ONLY)
+write_basic_package_version_file(
+  "${CMAKE_CURRENT_BINARY_DIR}/PlusLibConfigVersion.cmake"
+  VERSION ${PLUSLIB_VERSION}
+  COMPATIBILITY ExactVersion)
 LIST(APPEND PLUSLIB_INSTALL_CMAKE_FILES} "${CMAKE_CURRENT_BINARY_DIR}/PlusLibConfigVersion.cmake")
-  
-  
+
 #-----------------------------------------------------------------------------
 # With regards to ticket #1075, also generate in top-level directory
 CONFIGURE_FILE(PlusLibConfig.cmake.in
   "${CMAKE_BINARY_DIR}/PlusLibConfig.cmake" @ONLY)
-CONFIGURE_FILE(PlusLibConfigVersion.cmake.in
-  "${CMAKE_BINARY_DIR}/PlusLibConfigVersion.cmake" @ONLY)
+write_basic_package_version_file(
+  "${CMAKE_BINARY_DIR}/PlusLibConfigVersion.cmake"
+  VERSION ${PLUSLIB_VERSION}
+  COMPATIBILITY ExactVersion)
 
 #-----------------------------------------------------------------------------
 # Generate default application configuration files in the non-installed executable directories (Release and Debug too)
@@ -338,8 +351,8 @@ SET(PLUSCONFIG_MODEL_DIR "${PLUSLIB_DATA_DIR}/CADModels")
 SET(PLUSCONFIG_SCRIPTS_DIR "${PLUSLIB_SCRIPTS_DIR}")
 
 IF(MSVC OR ${CMAKE_GENERATOR} MATCHES "Xcode")
-  # PlusConfig.xml generation for Windows (separate directories for different build types)
-  configure_file(
+  # PlusConfig.xml generation for Windows or Mac (separate directories for different build types)
+  CONFIGURE_FILE(
     ${CMAKE_CURRENT_SOURCE_DIR}/PlusConfig.xml.in
     ${PLUS_EXECUTABLE_OUTPUT_PATH}/Release/PlusConfig.xml
     )
@@ -406,22 +419,17 @@ CONFIGURE_FILE(
 # Starting here, all operations are exclusively for INSTALL
 #-----------------------------------------------------------------------------
 ### That means some variables are filled with bogus data in other cases.
-  
+
 #-----------------------------------------------------------------------------
 # Install UseFile/Config
-  
 INSTALL(FILES ${PLUSLIB_INSTALL_INCLUDE_FILES}
-  DESTINATION ${PLUSLIB_INCLUDE_INSTALL} CONFIGURATIONS Release COMPONENT Development
+  DESTINATION ${PLUSLIB_INCLUDE_INSTALL} COMPONENT Development
   )
- 
-INSTALL(FILES ${PLUS_EXECUTABLE_OUTPUT_PATH}/Release/PlusConfig.xml
-  DESTINATION ${PLUSLIB_SHARE_INSTALL} CONFIGURATIONS Release 
-  )
-  
+
 INSTALL(FILES ${PLUSLIB_INSTALL_CMAKE_FILES}
-  DESTINATION ${PLUSLIB_CMAKE_INSTALL} CONFIGURATIONS Release COMPONENT Development
+  DESTINATION ${PLUSLIB_CMAKE_INSTALL} COMPONENT Development
   )
-  
+
 # set all paths to install location paths
 #relative to PlusConfig.cmake
 
@@ -437,9 +445,9 @@ IF(${PLUS_USE_EPIPHAN})
 ENDIF()
 
 IF(${PLUS_USE_Ascension3DG})
-  get_filename_component(Ascension3DG_LIB_FILE ${Ascension3DG_LIB_FILE} NAME)
+  GET_FILENAME_COMPONENT(Ascension3DG_LIB_FILE ${Ascension3DG_LIB_FILE} NAME)
   SET(Ascension3DG_LIB_FILE "\${PLUSLIB_INSTALL_PATH}/${PLUSLIB_LIBRARY_INSTALL}/${Ascension3DG_LIB_FILE}")
-  get_filename_component(Ascension3DG_SHARED_LIB_FILE ${Ascension3DG_SHARED_LIB_FILE} NAME)
+  GET_FILENAME_COMPONENT(Ascension3DG_SHARED_LIB_FILE ${Ascension3DG_SHARED_LIB_FILE} NAME)
   SET(Ascension3DG_SHARED_LIB_FILE "\${PLUSLIB_INSTALL_PATH}/${PLUSLIB_BINARY_INSTALL}/${Ascension3DG_SHARED_LIB_FILE}")
 ENDIF()
 
@@ -458,7 +466,7 @@ IF(${PLUS_USE_BRACHY_TRACKER})
   SET(USDIGITAL_SEI_LIB_DIR "\${PLUSLIB_INSTALL_PATH}/${PLUSLIB_LIBRARY_INSTALL}")
 ENDIF()
 
-IF( ${PLUS_USE_NVIDIA_DVP})
+IF(${PLUS_USE_NVIDIA_DVP})
   # use the relative paths instead of absolute paths
   FILE(RELATIVE_PATH NVIDIA_DVP_LIB_DIR ${CMAKE_INSTALL_PREFIX} ${NVIDIA_DVP_LIB_DIR})
   FILE(RELATIVE_PATH NVIDIA_DVP_BINARY_DIR ${CMAKE_INSTALL_PREFIX} ${NVIDIA_DVP_BINARY_DIR})
@@ -488,6 +496,18 @@ IF(${PLUS_USE_tesseract})
   SET(tesseract_DIR "\${PLUSLIB_INSTALL_PATH}/${tesseract_DIR}")
 ENDIF()
 
+IF(${PLUS_USE_OpenCV})
+  # use the relative path instead of absolute path
+  FILE(RELATIVE_PATH OpenCV_DIR ${CMAKE_INSTALL_PREFIX} ${OpenCV_DIR})
+  SET(OpenCV_DIR "\${PLUSLIB_INSTALL_PATH}/${OpenCV_DIR}")
+ENDIF()
+
+IF(${PLUS_USE_aruco})
+  # use the relative path instead of absolute path
+  FILE(RELATIVE_PATH aruco_DIR ${CMAKE_INSTALL_PREFIX} ${aruco_DIR})
+  SET(aruco_DIR "\${PLUSLIB_INSTALL_PATH}/${aruco_DIR}")
+ENDIF()
+
 IF(${PLUS_USE_SLICER})
   # use the relative path instead of absolute path
   FILE(RELATIVE_PATH SLICER_BIN_DIRECTORY ${CMAKE_INSTALL_PREFIX} ${SLICER_BIN_DIRECTORY})
@@ -495,15 +515,15 @@ IF(${PLUS_USE_SLICER})
 ENDIF()
 
 INSTALL(EXPORT PlusLib
-  DESTINATION "${PLUSLIB_CMAKE_INSTALL}" CONFIGURATIONS Release COMPONENT Development
+  DESTINATION "${PLUSLIB_CMAKE_INSTALL}" COMPONENT Development
   FILE PlusLibTargets.cmake
   )
 
 SET(PLUSLIB_CONFIG_CODE [=[
-get_filename_component(PLUSLIB_PACKAGE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
-get_filename_component(_IMPORT_PREFIX "${PLUSLIB_PACKAGE_DIR}" PATH)
-get_filename_component(_IMPORT_PREFIX "${_IMPORT_PREFIX}" PATH)
-get_filename_component(PLUSLIB_INSTALL_PATH "${_IMPORT_PREFIX}" PATH)
+GET_FILENAME_COMPONENT(PLUSLIB_PACKAGE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+GET_FILENAME_COMPONENT(_IMPORT_PREFIX "${PLUSLIB_PACKAGE_DIR}" PATH)
+GET_FILENAME_COMPONENT(_IMPORT_PREFIX "${_IMPORT_PREFIX}" PATH)
+GET_FILENAME_COMPONENT(PLUSLIB_INSTALL_PATH "${_IMPORT_PREFIX}" PATH)
 SET(PlusLib_TARGETS_FILE "${PLUSLIB_PACKAGE_DIR}/PlusLibTargets.cmake")]=])
 SET(VTK_CONFIG_DIR "\${PLUSLIB_INSTALL_PATH}/${VTK_REL_DIR}")
 SET(ITK_CONFIG_DIR "\${PLUSLIB_INSTALL_PREFIX}/${ITK_REL_DIR}")
@@ -523,5 +543,4 @@ INSTALL(FILES
   "${CMAKE_BINARY_DIR}/CMakeFiles/install/UsePlusLib.cmake"
   "${CMAKE_CURRENT_BINARY_DIR}/PlusLibConfigVersion.cmake"
   DESTINATION "${PLUSLIB_CMAKE_INSTALL}"
-  CONFIGURATIONS Release
   )

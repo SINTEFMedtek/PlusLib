@@ -1214,6 +1214,11 @@ PlusStatus vtkPlusCapistranoVideoSource::FreezeDevice(bool freeze)
     return PLUS_FAIL;
   }
 
+  if (this->Frozen == freeze) //already in desired mode
+  {
+    return PLUS_SUCCESS;
+  }
+
   this->Frozen=freeze;
   if (this->Frozen)
   {
@@ -1232,6 +1237,12 @@ PlusStatus vtkPlusCapistranoVideoSource::FreezeDevice(bool freeze)
   }
 
   return PLUS_SUCCESS;
+}
+
+// ----------------------------------------------------------------------------
+bool vtkPlusCapistranoVideoSource::IsFrozen()
+{
+    return Frozen;
 }
 
 // ----------------------------------------------------------------------------
@@ -1263,12 +1274,16 @@ PlusStatus vtkPlusCapistranoVideoSource::WaitForFrame()
   break;
   case USB_NOTSEQ:
     LOG_ERROR("Lost Probe Synchronization. Please check probe cables and restart.");
+	FreezeDevice(true);
+	FreezeDevice(false);
     break;
   case USB_STOPPED:
     LOG_ERROR("USB: Stopped. Check probe and restart.");
     break;
   default:
     LOG_ERROR("USB: Unknown USB error: "<<usbErrorCode);
+	FreezeDevice(true);
+	FreezeDevice(false);
     break;
   }
 

@@ -69,24 +69,6 @@ void vtkPlusOvrvisionProVideoSource::PrintSelf(ostream& os, vtkIndent indent)
 }
 
 //----------------------------------------------------------------------------
-void vtkPlusOvrvisionProVideoSource::SetLeftEyeDataSourceName(const std::string& leftEyeDataSourceName)
-{
-  this->LeftEyeDataSourceName = leftEyeDataSourceName;
-}
-
-//----------------------------------------------------------------------------
-void vtkPlusOvrvisionProVideoSource::SetVendor(const std::string& vendor)
-{
-  this->Vendor = vendor;
-}
-
-//----------------------------------------------------------------------------
-void vtkPlusOvrvisionProVideoSource::SetProcessingModeName(const std::string& processingModeName)
-{
-  this->ProcessingModeName = processingModeName;
-}
-
-//----------------------------------------------------------------------------
 PlusStatus vtkPlusOvrvisionProVideoSource::InternalConnect()
 {
   LOG_TRACE("vtkPlusOvrvisionProVideoSource::InternalConnect");
@@ -331,6 +313,8 @@ PlusStatus vtkPlusOvrvisionProVideoSource::ReadConfiguration(vtkXMLDataElement* 
   XML_READ_STRING_ATTRIBUTE_OPTIONAL(Vendor, deviceConfig);
   XML_READ_SCALAR_ATTRIBUTE_OPTIONAL(int, Exposure, deviceConfig);
 
+  SetAcquisitionRate(Framerate);
+
   XML_READ_BOOL_ATTRIBUTE_OPTIONAL(CameraSync, deviceConfig);
   XML_READ_STRING_ATTRIBUTE_OPTIONAL(ProcessingModeName, deviceConfig);
 
@@ -415,28 +399,4 @@ PlusStatus vtkPlusOvrvisionProVideoSource::NotifyConfigured()
   }
 
   return PLUS_SUCCESS;
-}
-
-//----------------------------------------------------------------------------
-std::string vtkPlusOvrvisionProVideoSource::GetLeftEyeDataSourceName() const
-{
-  return this->LeftEyeDataSourceName;
-}
-
-//----------------------------------------------------------------------------
-std::string vtkPlusOvrvisionProVideoSource::GetRightEyeDataSourceName() const
-{
-  return this->RightEyeDataSourceName;
-}
-
-//----------------------------------------------------------------------------
-std::string vtkPlusOvrvisionProVideoSource::GetProcessingModeName() const
-{
-  return this->ProcessingModeName;
-}
-
-//----------------------------------------------------------------------------
-std::string vtkPlusOvrvisionProVideoSource::GetVendor() const
-{
-  return this->Vendor;
 }
