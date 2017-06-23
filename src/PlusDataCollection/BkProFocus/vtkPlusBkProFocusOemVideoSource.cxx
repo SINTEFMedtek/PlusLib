@@ -205,7 +205,7 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::InternalConnect()
   {
 	  if (!(this->RequestParametersFromScanner()
 		  && this->ConfigEventsOn()
-//		  && this->SubscribeToParameterChanges()
+		  && this->SubscribeToParameterChanges()
 			))
 	  {
 		  LOG_ERROR("Cound not init BK scanner");
@@ -242,7 +242,7 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::StartDataStreaming()
 		query = "QUERY:GRAB_FRAME \"ON\",20;";
 	}
 
-	LOG_TRACE("Start data streaming. Query: " << query);
+	LOG_DEBUG("Start data streaming. Query: " << query);
 	if (!SendQuery(query))
 	{
 		return PLUS_FAIL;
@@ -254,7 +254,7 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::StartDataStreaming()
 PlusStatus vtkPlusBkProFocusOemVideoSource::StopDataStreaming()
 {
   std::string query = "QUERY:GRAB_FRAME \"OFF\";";
-  LOG_TRACE("Query from vtkPlusBkProFocusOemVideoSource: " << query);
+  LOG_DEBUG("Stop data streaming. Query: " << query);
   if (!SendQuery(query))
   {
 	  return PLUS_FAIL;
@@ -467,7 +467,7 @@ fclose(f);
 //----------------------------------------------------------------------------
 PlusStatus vtkPlusBkProFocusOemVideoSource::ProcessMessagesAndReadNextImage(int maxReplySize)
 {
-	LOG_DEBUG("ProcessMessagesAndReadNextImage");
+//	LOG_DEBUG("ProcessMessagesAndReadNextImage");
 	//this->Internal->OemClientReadBuffer.resize(maxReplySize);
 
 	//Read and process messages until an image message is found
@@ -509,23 +509,23 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::ProcessMessagesAndReadNextImage(int 
 		{
 			if (messageName.compare("US_WIN_SIZE") == 0)
 			{
-				this->ParseImageSize();
+				this->ParseImageSize(replyStream);
 			}
 			else if ((messageName.compare("B_GEOMETRY_SCANAREA") == 0) && (messageSubtype.compare("A") == 0))
 			{
-				this->ParseGeometryScanarea();
+				this->ParseGeometryScanarea(replyStream);
 			}
 			else if ((messageName.compare("B_GEOMETRY_PIXEL") == 0) && (messageSubtype.compare("A") == 0))
 			{
-				this->ParseGeometryPixel();
+				this->ParseGeometryPixel(replyStream);
 			}
 			else if ((messageName.compare("B_GEOMETRY_TISSUE") == 0) && (messageSubtype.compare("A") == 0))
 			{
-				this->ParseGeometryTissue();
+				this->ParseGeometryTissue(replyStream);
 			}
 			else if ((messageName.compare("B_GAIN") == 0) && (messageSubtype.compare("A") == 0))
 			{
-				this->ParseGain();
+				this->ParseGain(replyStream);
 			}
 			else if (messageName.compare("TRANSDUCER_LIST") == 0)
 			{
@@ -652,10 +652,14 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::QueryImageSize()
 	return SendQuery(query);
 }
 
-void vtkPlusBkProFocusOemVideoSource::ParseImageSize()
+void vtkPlusBkProFocusOemVideoSource::ParseImageSize(std::istringstream &replyStream)
 {
-  // Retrieve the "DATA:US_WIN_SIZE X,Y;"
-  sscanf(&(this->Internal->OemMessage[0]), "DATA:US_WIN_SIZE %d,%d;", &this->UltrasoundWindowSize[0], &this->UltrasoundWindowSize[1]);
+	std::string stringVal;
+	std::getline(replyStream, stringVal, ',');
+	this->UltrasoundWindowSize[0] = atoi(stringVal.c_str());
+	std::getline(replyStream, stringVal, ';');
+	this->UltrasoundWindowSize[1] = atoi(stringVal.c_str());
+
   LOG_TRACE("Ultrasound image size = " << this->UltrasoundWindowSize[0] << " x " << this->UltrasoundWindowSize[1]);
 }
 
@@ -670,11 +674,26 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::QueryGeometryScanarea()
 	return SendQuery(query);
 }
 	
-void vtkPlusBkProFocusOemVideoSource::ParseGeometryScanarea()
+void vtkPlusBkProFocusOemVideoSource::ParseGeometryScanarea(std::istringstream &replyStream)
 {
-	// Retrieve the "DATA:B_GEOMETRY_SCANAREA StartLineX(m),StartLineY(m),StartLineAngle(rad),StartDepth(m),StopLineX(m),StopLineY(m),StopLineAngle(rad),StopDepth(m);"
-	sscanf(&(this->Internal->OemMessage[0]), "DATA:B_GEOMETRY_SCANAREA:A %lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf;",
-		&StartLineX_m, &StartLineY_m, &StartLineAngle_rad, &StartDepth_m, &StopLineX_m, &StopLineY_m, &StopLineAngle_rad, &StopDepth_m);
+	std::string stringVal;
+	std::getline(replyStream, stringVal, ',');
+	StartLineX_m = atof(stringVal.c_str());
+	std::getline(replyStream, stringVal, ',');
+	StartLineY_m = atof(stringVal.c_str());
+	std::getline(replyStream, stringVal, ',');
+	StartLineAngle_rad = atof(stringVal.c_str());
+	std::getline(replyStream, stringVal, ',');
+	StartDepth_m = atof(stringVal.c_str());
+	std::getline(replyStream, stringVal, ',');
+	StopLineX_m = atof(stringVal.c_str());
+	std::getline(replyStream, stringVal, ',');
+	StopLineY_m = atof(stringVal.c_str());
+	std::getline(replyStream, stringVal, ',');
+	StopLineAngle_rad = atof(stringVal.c_str());
+	std::getline(replyStream, stringVal, ';');
+	StopDepth_m = atof(stringVal.c_str());
+
 	LOG_DEBUG("Ultrasound geometry. StartLineX_m: " << StartLineX_m << " StartLineY_m: " << StartLineY_m << " StartLineAngle_rad: " << StartLineAngle_rad <<
 		" StartDepth_m: " << StartDepth_m << " StopLineX_m: " << StopLineX_m << " StopLineY_m: " << StopLineY_m << " StopLineAngle_rad: " << StopLineAngle_rad << " StopDepth_m: " << StopDepth_m);
 }
@@ -689,11 +708,18 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::QueryGeometryPixel()
 	return SendQuery(query);
 }
 
-void vtkPlusBkProFocusOemVideoSource::ParseGeometryPixel()
+void vtkPlusBkProFocusOemVideoSource::ParseGeometryPixel(std::istringstream &replyStream)
 {
-	// Retrieve the "DATA:B_GEOMETRY_PIXEL Left,Top,Right,Bottom;"
-	sscanf(&(this->Internal->OemMessage[0]), "DATA:B_GEOMETRY_PIXEL:A %d,%d,%d,%d;",
-		&pixelLeft_pix, &pixelTop_pix, &pixelRight_pix, &pixelBottom_pix);
+	std::string stringVal;
+	std::getline(replyStream, stringVal, ',');
+	pixelLeft_pix = atoi(stringVal.c_str());
+	std::getline(replyStream, stringVal, ',');
+	pixelTop_pix = atoi(stringVal.c_str());
+	std::getline(replyStream, stringVal, ',');
+	pixelRight_pix = atoi(stringVal.c_str());
+	std::getline(replyStream, stringVal, ';');
+	pixelBottom_pix = atoi(stringVal.c_str());
+
 	LOG_DEBUG("Ultrasound geometry. pixelLeft_pix: " << pixelLeft_pix << " pixelTop_pix: " << pixelTop_pix << " pixelRight_pix: " << pixelRight_pix << " pixelBottom_pix: " << pixelBottom_pix);
 }
 
@@ -707,10 +733,17 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::QueryGeometryTissue()
 	return SendQuery(query);
 }
 
-void vtkPlusBkProFocusOemVideoSource::ParseGeometryTissue()
+void vtkPlusBkProFocusOemVideoSource::ParseGeometryTissue(std::istringstream &replyStream)
 {
-	sscanf(&(this->Internal->OemMessage[0]), "DATA:B_GEOMETRY_TISSUE:A %lf,%lf,%lf,%lf;",
-		&tissueLeft_m, &tissueTop_m, &tissueRight_m, &tissueBottom_m);
+	std::string stringVal;
+	std::getline(replyStream, stringVal, ',');
+	tissueLeft_m = atof(stringVal.c_str());
+	std::getline(replyStream, stringVal, ',');
+	tissueTop_m = atof(stringVal.c_str());
+	std::getline(replyStream, stringVal, ',');
+	tissueRight_m = atof(stringVal.c_str());
+	std::getline(replyStream, stringVal, ';');
+	tissueBottom_m = atof(stringVal.c_str());
 	LOG_DEBUG("Ultrasound geometry. tissueLeft_m: " << tissueLeft_m << " tissueTop_m: " << tissueTop_m << " tissueRight_m: " << tissueRight_m << " tissueBottom_m: " << tissueBottom_m);
 }
 
@@ -724,10 +757,12 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::QueryGain()
 	return SendQuery(query);
 }
 
-void vtkPlusBkProFocusOemVideoSource::ParseGain()
+void vtkPlusBkProFocusOemVideoSource::ParseGain(std::istringstream &replyStream)
 {
-	sscanf(&(this->Internal->OemMessage[0]), "DATA:B_GAIN:A %d;", &gain_percent);
-	LOG_TRACE("Ultrasound gain. gain_percent: " << gain_percent);
+	std::string stringVal;
+	std::getline(replyStream, stringVal, ';');
+	gain_percent = atoi(stringVal.c_str());
+	LOG_DEBUG("Ultrasound gain. gain_percent: " << gain_percent);
 }
 
 
@@ -760,7 +795,7 @@ void vtkPlusBkProFocusOemVideoSource::ParseTransducerList(std::istringstream &re
 	this->SetProbeTypeForPort("C", RemoveQuotationMarks(probeType));
 	//Port M
 	std::getline(replyStream, probeName, ',');
-	std::getline(replyStream, probeType, ',');
+	std::getline(replyStream, probeType, ';');
 	this->SetProbeTypeForPort("M", RemoveQuotationMarks(probeType));
 }
 
@@ -816,7 +851,7 @@ void vtkPlusBkProFocusOemVideoSource::ParseTransducerData(std::istringstream &re
 	std::string probePortString;
 	std::string probeName;
 	std::getline(replyStream, probePortString, ',');
-	std::getline(replyStream, probeName, ',');
+	std::getline(replyStream, probeName, ';');
 	probePort = this->RemoveQuotationMarks(probePortString);
 }
 

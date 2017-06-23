@@ -166,11 +166,11 @@ protected:
   PlusStatus QueryTransducerList();
   PlusStatus QueryTransducer();
   
-  void ParseImageSize();
-  void ParseGeometryScanarea();
-  void ParseGeometryPixel();
-  void ParseGeometryTissue();
-  void ParseGain();
+  void ParseImageSize(std::istringstream &replyStream);
+  void ParseGeometryScanarea(std::istringstream &replyStream);
+  void ParseGeometryPixel(std::istringstream &replyStream);
+  void ParseGeometryTissue(std::istringstream &replyStream);
+  void ParseGain(std::istringstream &replyStream);
   void ParseTransducerList(std::istringstream &replyStream);
   void ParseTransducerData(std::istringstream &replyStream);
 
