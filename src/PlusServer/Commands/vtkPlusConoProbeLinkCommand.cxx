@@ -45,24 +45,12 @@ void vtkPlusConoProbeLinkCommand::GetCommandNames(std::list<std::string>& cmdNam
 std::string vtkPlusConoProbeLinkCommand::GetDescription(const std::string& commandName)
 {
   std::string desc;
-  if (commandName.empty() || PlusCommon::iequal(commandName, SHOW_CMD))
+  if (commandName.empty() || PlusCommon::IsEqualInsensitive(commandName, SHOW_CMD))
   {
     desc += SHOW_CMD;
     desc += ": Opens the Probe Dialog part of the Optimet Smart32 SDK. ConoProbeDeviceId: ID of the ConoProbe device.";
   }
   return desc;
-}
-
-//----------------------------------------------------------------------------
-std::string vtkPlusConoProbeLinkCommand::GetConoProbeDeviceId() const
-{
-  return this->ConoProbeDeviceId;
-}
-
-//----------------------------------------------------------------------------
-void vtkPlusConoProbeLinkCommand::SetConoProbeDeviceId(const std::string& conoProbeDeviceId)
-{
-  this->ConoProbeDeviceId = conoProbeDeviceId;
 }
 
 //----------------------------------------------------------------------------
@@ -167,7 +155,7 @@ PlusStatus vtkPlusConoProbeLinkCommand::Execute()
 
   std::string responseMessageBase = std::string("OptimetConoProbe (") + conoProbeDevice->GetDeviceId() + ") " + this->Name;
   LOG_INFO("vtkPlusConoProbeLinkCommand::Execute: " << this->Name);
-  if (PlusCommon::iequal(this->Name, SHOW_CMD))
+  if (PlusCommon::IsEqualInsensitive(this->Name, SHOW_CMD))
   {
     if (conoProbeDevice->ShowProbeDialog())
     {

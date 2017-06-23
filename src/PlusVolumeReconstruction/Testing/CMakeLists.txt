@@ -8,12 +8,28 @@ function(VolRecRegressionTest TestName ConfigFileNameFragment InputSeqFile OutNa
     --source-seq-file=${TestDataDir}/${InputSeqFile}.mha
     --output-volume-file=vtkVolumeReconstructorTest${OutNameFragment}volume.mha
     --image-to-reference-transform=ImageToReference
+    --importance-mask-file=${TestDataDir}/ImportanceMask.png
+    --disable-compression
     )
   SET_TESTS_PROPERTIES( vtkVolumeReconstructorTestRun${TestName} PROPERTIES FAIL_REGULAR_EXPRESSION "ERROR;WARNING" )
 
+  # If expected filename is specified in a platform-specific directory then use that
+  IF(WIN32)
+    SET(PLATFORM "Windows")
+  ELSE()
+    SET(PLATFORM "Linux")
+  ENDIF()
+  SET(CommonExpectedVolumeFileName "${TestDataDir}/vtkVolumeReconstructorTest${OutNameFragment}volumeRef.mha")
+  SET(PlatformSpecificExpectedVolumeFileName "${TestDataDir}/${PLATFORM}/vtkVolumeReconstructorTest${OutNameFragment}volumeRef.mha")
+  if(EXISTS "${PlatformSpecificExpectedVolumeFileName}")
+    SET(ExpectedVolumeFileName ${PlatformSpecificExpectedVolumeFileName})
+  ELSE()
+    SET(ExpectedVolumeFileName ${CommonExpectedVolumeFileName})
+  endif()
+  
   ADD_TEST(vtkVolumeReconstructorTestCompare${TestName}
     ${CMAKE_COMMAND} -E compare_files
-    ${TestDataDir}/vtkVolumeReconstructorTest${OutNameFragment}volumeRef.mha
+    ${ExpectedVolumeFileName}
     vtkVolumeReconstructorTest${OutNameFragment}volume.mha
     )
   SET_TESTS_PROPERTIES(vtkVolumeReconstructorTestCompare${TestName} PROPERTIES DEPENDS vtkVolumeReconstructorTestRun${TestName})
@@ -28,14 +44,12 @@ IF(PLUSBUILD_BUILD_PlusLib_TOOLS)
   VolRecRegressionTest(LinrMaxiUChar SpinePhantom_LN_MAXI SpinePhantomFreehand LNMAXI)
 
   # Importance mask tests
-  file(COPY ${TestDataDir}/ImportanceMask.png DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
   VolRecRegressionTest(IMLinearFull ImportanceMaskLinearFull ImportanceMaskInput IMLiF)
   VolRecRegressionTest(IMLinearPartial ImportanceMaskLinearPartial ImportanceMaskInput IMLiP)
   VolRecRegressionTest(IMLinearNone ImportanceMaskLinearNone ImportanceMaskInput IMLiN)
   VolRecRegressionTest(IMNearFull ImportanceMaskNNFull ImportanceMaskInput IMNNF)
   VolRecRegressionTest(IMNearPartial ImportanceMaskNNPartial ImportanceMaskInput IMNNP)
   VolRecRegressionTest(IMNearNone ImportanceMaskNNNone ImportanceMaskInput IMNNN)
-
 
   ADD_TEST(CreateSliceModelsTest
     ${PLUS_EXECUTABLE_OUTPUT_PATH}/CreateSliceModels

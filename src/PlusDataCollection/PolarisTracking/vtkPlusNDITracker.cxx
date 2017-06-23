@@ -986,7 +986,8 @@ PlusStatus vtkPlusNDITracker::ReadConfiguration(vtkXMLDataElement* rootConfigEle
       // if this is not a data source element, skip it
       continue;
     }
-    if (toolDataElement->GetAttribute("Type") != NULL && STRCASECMP(toolDataElement->GetAttribute("Type"), "Tool") != 0)
+    bool isEqual(false);
+    if (PlusCommon::XML::SafeCheckAttributeValueInsensitive(*toolDataElement, "Type", vtkPlusDataSource::DATA_SOURCE_TYPE_TOOL_TAG, isEqual) != PLUS_SUCCESS || !isEqual)
     {
       // if this is not a Tool element, skip it
       continue;

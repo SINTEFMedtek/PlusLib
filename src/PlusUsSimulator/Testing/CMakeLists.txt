@@ -37,11 +37,9 @@ ADD_TEST(vtkPlusUsSimulatorCompareToBaselineTestCurvilinear
   )
 SET_TESTS_PROPERTIES(vtkPlusUsSimulatorCompareToBaselineTestCurvilinear PROPERTIES DEPENDS vtkPlusUsSimulatorRunTestCurvilinear)
 
-
 #It is a test only, no need to include in the release package
 #INSTALL(TARGETS vtkPlusUsSimulatorTest
 #  RUNTIME
 #  DESTINATION bin
-#  CONFIGURATIONS Release
 #  COMPONENT RuntimeExecutables
 #  )

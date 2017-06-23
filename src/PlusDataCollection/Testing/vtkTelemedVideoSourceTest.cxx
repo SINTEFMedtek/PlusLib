@@ -5,14 +5,13 @@
 =========================================================Plus=header=end*/
 
 /*!
-  \file vtkPlusTelemedVideoSourceTest.cxx
+  \file vtkTelemedVideoSourceTest.cxx
   \brief Test basic connection to the Telemed ultrasound probe
 
   If the --rendering-off switch is defined then the connection is established, images are
   transferred for a few seconds, then the connection is closed (useful for automatic testing).
   If the --rendering-off switch is not defined then the live ultrasound image is displayed
   in a window (useful for quick interactive testing of the image transfer).
-  \todo This is a test todo
   \ingroup PlusLibDataCollection
 */
 #include "PlusConfigure.h"
@@ -312,7 +311,7 @@ int main(int argc, char* argv[])
     // TODO : Set the Frequency (in MHz) on the device
   }
 
-  TelemedDevice->CreateDefaultOutputChannel(true);
+  TelemedDevice->CreateDefaultOutputChannel(NULL, true);
 
   vtkPlusDataSource* videoSource=NULL;
   if (TelemedDevice->GetFirstActiveOutputVideoSource(videoSource) != PLUS_SUCCESS )

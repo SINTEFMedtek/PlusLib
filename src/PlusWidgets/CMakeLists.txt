@@ -2,21 +2,21 @@ PROJECT(PlusWidgets)
 
 # --------------------------------------------------------------------------
 # Sources
-SET (${PROJECT_NAME}_SRCS
+SET(${PROJECT_NAME}_SRCS
   QPlusDeviceSetSelectorWidget.cxx
   QPlusStatusIcon.cxx
   QPlusToolStateDisplayWidget.cxx
   QPlusConfigFileSaverDialog.cxx
   )
 
-SET (${PROJECT_NAME}_UI_HDRS
+SET(${PROJECT_NAME}_HDRS
   QPlusDeviceSetSelectorWidget.h
   QPlusStatusIcon.h
   QPlusToolStateDisplayWidget.h
   QPlusConfigFileSaverDialog.h
   )
 
-SET (${PROJECT_NAME}_UI_SRCS
+SET(${PROJECT_NAME}_UI_SRCS
   QPlusDeviceSetSelectorWidget.ui
   QPlusConfigFileSaverDialog.ui
   )
@@ -27,7 +27,7 @@ MARK_AS_ADVANCED(PLUSLIB_WIDGETS_QRC)
 
 # --------------------------------------------------------------------------
 # Build the library
-SET (${PROJECT_NAME}_LIBS 
+SET(${PROJECT_NAME}_LIBS 
   Qt5::Xml
   Qt5::Widgets
   vtkGUISupportQt
@@ -40,10 +40,17 @@ SET(${PROJECT_NAME}_INCLUDE_DIRS
   ${CMAKE_CURRENT_BINARY_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}
   )
+# If CMake 3.7 is the minimum version then the next line can be
+# changed to: IF(CMAKE_VERSION VERSION_GREATER_EQUAL "3.8")
+IF(NOT (CMAKE_VERSION VERSION_LESS "3.8"))
+  # CMake 3.8 and later puts generated headers (such as ui_QPlusDeviceSetSelectorWidget.h) into
+  # .../PlusLib-bin/src/PlusWidgets/PlusWidgets_autogen/include
+  LIST(APPEND ${PROJECT_NAME}_INCLUDE_DIRS ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}_autogen/include)
+ENDIF()
 GENERATE_EXPORT_DIRECTIVE_FILE(${PROJECT_NAME})
 ADD_LIBRARY(${PROJECT_NAME}
-  ${${PROJECT_NAME}_SRCS} 
-  ${${PROJECT_NAME}_UI_HDRS} 
+  ${${PROJECT_NAME}_SRCS}
+  ${${PROJECT_NAME}_HDRS} 
   ${${PROJECT_NAME}_UI_SRCS} 
   ${_Qt_resource}
   )
@@ -67,18 +74,10 @@ SET(vcProj_${PROJECT_NAME} ${PROJECT_NAME};${PlusLib_BINARY_DIR}/src/PlusWidgets
 # --------------------------------------------------------------------------
 # Install
 #
-INSTALL(TARGETS ${PROJECT_NAME} EXPORT PlusLib
-  RUNTIME DESTINATION bin CONFIGURATIONS Release COMPONENT RuntimeLibraries
-  LIBRARY DESTINATION lib CONFIGURATIONS Release COMPONENT RuntimeLibraries
-  ARCHIVE DESTINATION lib CONFIGURATIONS Release COMPONENT Development
-  )
-INSTALL(FILES ${${PROJECT_NAME}_UI_HDRS}
-  DESTINATION include
-  COMPONENT Development
-  )
+PlusLibInstallLibrary(${PROJECT_NAME} ${PROJECT_NAME})
 
 # --------------------------------------------------------------------------
 # Testing
-IF (BUILD_TESTING)
+IF(BUILD_TESTING)
   ADD_SUBDIRECTORY (Testing)
 ENDIF()
