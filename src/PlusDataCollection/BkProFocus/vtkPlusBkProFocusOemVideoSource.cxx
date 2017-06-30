@@ -24,6 +24,8 @@ static const char OFFLINE_TESTING_FILENAME[] = "/Users/olevs/dev/test/bktest_col
 #include "vtkPlusChannel.h"
 #include "vtkPlusDataSource.h"
 #include "vtkClientSocket.h"
+#include "vtkMath.h"
+
 #include "PixelCodec.h"
 
 #include <stdlib.h>
@@ -38,6 +40,13 @@ static const char OFFLINE_TESTING_FILENAME[] = "/Users/olevs/dev/test/bktest_col
 
 static const int TIMESTAMP_SIZE = 4;
 
+
+//New standard
+const char* vtkPlusBkProFocusOemVideoSource::KEY_ORIGIN				= "Origin";
+const char* vtkPlusBkProFocusOemVideoSource::KEY_ANGLES				= "Angles";
+const char* vtkPlusBkProFocusOemVideoSource::KEY_BOUNDING_BOX		= "BouningBox";
+const char* vtkPlusBkProFocusOemVideoSource::KEY_DEPTHS				= "Depths";
+const char* vtkPlusBkProFocusOemVideoSource::KEY_LINEAR_WIDTH		= "LinearWidth";
 
 const char* vtkPlusBkProFocusOemVideoSource::KEY_DEPTH				= "Depth";
 const char* vtkPlusBkProFocusOemVideoSource::KEY_GAIN				= "Gain";
@@ -1210,6 +1219,13 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::AddParametersToFrameFields()
 {
 	vtkPlusUsDevice::InternalUpdate();// Move to beginning of vtkPlusBkProFocusOemVideoSource::InternalUpdate()?
 
+
+	this->FrameFields[KEY_ORIGIN]			= PlusCommon::ToString(this->CalculateOrigin());
+	this->FrameFields[KEY_ANGLES]			= PlusCommon::ToString(this->CalculateAngles());
+	this->FrameFields[KEY_BOUNDING_BOX]		= PlusCommon::ToString(this->CalculateBoundingBox());
+	this->FrameFields[KEY_DEPTHS]			= PlusCommon::ToString(this->CalculateDepths());
+	this->FrameFields[KEY_LINEAR_WIDTH]		= PlusCommon::ToString(this->CalculateLinearWidth());
+
 	this->FrameFields[KEY_DEPTH]            = PlusCommon::ToString(this->CalculateDepthMm());
 	this->FrameFields[KEY_GAIN]             = PlusCommon::ToString(this->CalculateGain());
 	this->FrameFields[KEY_PROBE_TYPE]       = PlusCommon::ToString(this->GetProbeType());
@@ -1232,6 +1248,108 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::AddParametersToFrameFields()
 	this->FrameFields[KEY_SECTOR_TOP_MM]		= PlusCommon::ToString(this->GetSectorTopMm());
 	this->FrameFields[KEY_SECTOR_BOTTOM_MM]		= PlusCommon::ToString(this->GetSectorBottomMm());
 	return PLUS_SUCCESS;
+}
+
+
+// Sector origin relative to upper left corner of image
+// in pixels
+std::vector<double> vtkPlusBkProFocusOemVideoSource::CalculateOrigin()
+{
+	std::vector<double> retval;
+	int* dimensions = this->Internal->DecodedImageFrame->GetDimensions();
+	double originX = dimensions[0]/2.0;
+
+
+	double originY = 0;
+	if (this->IsSectorProbe())
+	{
+		double originHeightAboveBox_mm = (this->GetStartLineX()) / tan(this->CalculateWidthInRadians() / 2.0);
+		originY = 0 - ( originHeightAboveBox_mm / this->GetSpacingY());
+	}
+
+	double originZ = 0;
+
+	retval.push_back(originX);
+	retval.push_back(originY);
+	retval.push_back(originZ);
+	return retval;
+}
+
+//TODO: Put this utility function someplace else, or replace it with something similar
+bool vtkPlusBkProFocusOemVideoSource::similar(double a, double b, double tol)
+{
+	return fabs(b - a) < tol;
+}
+
+//Probe sector angles relative to down, in radians
+// 2 angles for 2D, and 4 for 3D probes
+// For regular imaging with linear probes these will be 0
+std::vector<double> vtkPlusBkProFocusOemVideoSource::CalculateAngles()
+{
+	std::vector<double> retval;
+	retval.push_back(this->GetStartLineAngle() - vtkMath::Pi()/2.0);
+	retval.push_back(this->GetStopLineAngle() - vtkMath::Pi()/2.0);
+	retval.push_back(0);
+	retval.push_back(0);
+	return retval;
+}
+
+//Boundaries to cut away areas outside the US sector, in pixels
+// 4 for 2D, and 6 for 3D
+std::vector<double> vtkPlusBkProFocusOemVideoSource::CalculateBoundingBox()
+{
+	std::vector<double> retval;
+
+	int* dimensions = this->Internal->DecodedImageFrame->GetDimensions();
+
+	retval.push_back(0);
+	retval.push_back(dimensions[0]-1);
+	retval.push_back(0);
+	retval.push_back(dimensions[1]-1);
+	retval.push_back(0);
+	retval.push_back(0);
+	return retval;
+}
+
+// Start, stop depth for the imaging, in mm
+std::vector<double> vtkPlusBkProFocusOemVideoSource::CalculateDepths()
+{
+	std::vector<double> retval;
+
+	double originDistanceToStartLine_mm = 0.0;
+
+	if(this->IsSectorProbe())
+	{
+		originDistanceToStartLine_mm = (this->GetStartLineX()) / sin(this->CalculateWidthInRadians() / 2.0);
+	}
+
+	double depthStart = this->GetStartDepth() + originDistanceToStartLine_mm;
+	double depthEnd = this->GetStopDepth() + originDistanceToStartLine_mm;
+
+	retval.push_back(depthStart);
+	retval.push_back(depthEnd);
+	return retval;
+}
+
+double vtkPlusBkProFocusOemVideoSource::CalculateLinearWidth()
+{
+	double width = fabs(this->GetStartLineX() - this->GetStopLineX());
+	return width;
+}
+
+bool vtkPlusBkProFocusOemVideoSource::IsSectorProbe()
+{
+//	bool sectorProbe = this->similar(this->CalculateLinearWidth(), 0);
+	bool sectorProbe = false;
+	if (this->GetProbeType() == SECTOR)
+		sectorProbe = true;
+	return sectorProbe;
+}
+
+double vtkPlusBkProFocusOemVideoSource::CalculateWidthInRadians()
+{
+	double width_radians = fabs(this->GetStartLineAngle() - this->GetStopLineAngle());
+	return width_radians;
 }
 
 double vtkPlusBkProFocusOemVideoSource::CalculateDepthMm()

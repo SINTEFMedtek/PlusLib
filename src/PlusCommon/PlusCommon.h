@@ -399,6 +399,18 @@ namespace PlusCommon
 #endif
   }
 
+  static std::string ToString(std::vector<double> numbers)
+  {
+	  std::string retval;
+	  for (int i = 0; i < numbers.size(); ++i)
+	  {
+		  retval = retval + PlusCommon::ToString(numbers[i]);
+		  if (i+1 < numbers.size())
+			  retval += ",";
+	  }
+	  return retval;
+  }
+
   static const int NO_CLIP = -1;
   vtkPlusCommonExport bool IsClippingRequested(const int clipOrigin[3], const int clipSize[3]);
   vtkPlusCommonExport bool IsClippingWithinExtents(const int clipOrigin[3], const int clipSize[3], const int extents[6]);

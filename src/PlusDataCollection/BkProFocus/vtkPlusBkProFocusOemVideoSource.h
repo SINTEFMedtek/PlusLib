@@ -84,6 +84,13 @@ public:
   vtkBooleanMacro(ColorEnabled, bool);
 
 protected:
+  static const char* KEY_ORIGIN;
+  static const char* KEY_ANGLES;
+  static const char* KEY_BOUNDING_BOX;
+  static const char* KEY_DEPTHS;
+  static const char* KEY_LINEAR_WIDTH;
+
+
 	static const char* KEY_DEPTH;
 	static const char* KEY_GAIN;
 	
@@ -181,6 +188,18 @@ protected:
   PlusStatus DecodePngImage(unsigned char* pngBuffer, unsigned int pngBufferSize, vtkImageData* decodedImage);
 
   PlusStatus RequestParametersFromScanner();
+
+  //New standard
+  std::vector<double> CalculateOrigin();
+  std::vector<double> CalculateAngles();
+  std::vector<double> CalculateBoundingBox();
+  std::vector<double> CalculateDepths();
+  double CalculateLinearWidth();
+
+  //Utility functions
+  bool IsSectorProbe();
+  double CalculateWidthInRadians();
+  bool similar(double a, double b, double tol = 1.0E-6);
 
   double CalculateDepthMm();
   int CalculateGain();
