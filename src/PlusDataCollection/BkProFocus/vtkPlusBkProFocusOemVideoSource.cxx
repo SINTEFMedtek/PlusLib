@@ -11,7 +11,7 @@ See License.txt for details.
 #define OFFLINE_TESTING
 //static const char OFFLINE_TESTING_FILENAME[] = "c:\\Users\\lasso\\Downloads\\bktest.png";
 //static const char OFFLINE_TESTING_FILENAME[] = "c:\\dev\\bktest_color.png";
-static const char OFFLINE_TESTING_FILENAME[] = "/Users/olevs/dev/test/bktest_color.png";
+static const char OFFLINE_TESTING_FILENAME[] = "/Users/olevs/dev/test/bktest.png";
 
 #include "PlusConfigure.h"
 #include "vtkPlusBkProFocusOemVideoSource.h"
@@ -42,6 +42,7 @@ static const int TIMESTAMP_SIZE = 4;
 
 
 //New standard
+const char* vtkPlusBkProFocusOemVideoSource::KEY_PROBE_TYPE			= "ProbeType";
 const char* vtkPlusBkProFocusOemVideoSource::KEY_ORIGIN				= "Origin";
 const char* vtkPlusBkProFocusOemVideoSource::KEY_ANGLES				= "Angles";
 const char* vtkPlusBkProFocusOemVideoSource::KEY_BOUNDING_BOX		= "BouningBox";
@@ -61,7 +62,6 @@ const char* vtkPlusBkProFocusOemVideoSource::KEY_START_LINE_ANGLE	= "StartLineAn
 const char* vtkPlusBkProFocusOemVideoSource::KEY_STOP_LINE_ANGLE	= "StopLineAngle";
 
 //const char* vtkPlusBkProFocusOemVideoSource::KEY_WIDTH			= "Width";
-const char* vtkPlusBkProFocusOemVideoSource::KEY_PROBE_TYPE			= "ProbeType";
 
 const char* vtkPlusBkProFocusOemVideoSource::KEY_SPACING_X			= "SpacingX";
 const char* vtkPlusBkProFocusOemVideoSource::KEY_SPACING_Y			= "SpacingY";
@@ -1220,15 +1220,20 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::AddParametersToFrameFields()
 	vtkPlusUsDevice::InternalUpdate();// Move to beginning of vtkPlusBkProFocusOemVideoSource::InternalUpdate()?
 
 
+	this->FrameFields[KEY_PROBE_TYPE]       = PlusCommon::ToString(this->GetProbeType());
 	this->FrameFields[KEY_ORIGIN]			= PlusCommon::ToString(this->CalculateOrigin());
 	this->FrameFields[KEY_ANGLES]			= PlusCommon::ToString(this->CalculateAngles());
 	this->FrameFields[KEY_BOUNDING_BOX]		= PlusCommon::ToString(this->CalculateBoundingBox());
 	this->FrameFields[KEY_DEPTHS]			= PlusCommon::ToString(this->CalculateDepths());
 	this->FrameFields[KEY_LINEAR_WIDTH]		= PlusCommon::ToString(this->CalculateLinearWidth());
 
+	this->FrameFields[KEY_SPACING_X]		= PlusCommon::ToString(this->GetSpacingX());
+	this->FrameFields[KEY_SPACING_Y]		= PlusCommon::ToString(this->GetSpacingY());
+
+	//Scanner specific values. Will be removed
+
 	this->FrameFields[KEY_DEPTH]            = PlusCommon::ToString(this->CalculateDepthMm());
 	this->FrameFields[KEY_GAIN]             = PlusCommon::ToString(this->CalculateGain());
-	this->FrameFields[KEY_PROBE_TYPE]       = PlusCommon::ToString(this->GetProbeType());
 	this->FrameFields[KEY_START_DEPTH]      = PlusCommon::ToString(this->GetStartDepth());
 	this->FrameFields[KEY_STOP_DEPTH]       = PlusCommon::ToString(this->GetStopDepth());
 	this->FrameFields[KEY_START_LINE_X]     = PlusCommon::ToString(this->GetStartLineX());
@@ -1237,8 +1242,6 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::AddParametersToFrameFields()
 	this->FrameFields[KEY_STOP_LINE_Y]      = PlusCommon::ToString(this->GetStopLineY());
 	this->FrameFields[KEY_START_LINE_ANGLE] = PlusCommon::ToString(this->GetStartLineAngle());
 	this->FrameFields[KEY_STOP_LINE_ANGLE]  = PlusCommon::ToString(this->GetStopLineAngle());
-	this->FrameFields[KEY_SPACING_X]		= PlusCommon::ToString(this->GetSpacingX());
-	this->FrameFields[KEY_SPACING_Y]		= PlusCommon::ToString(this->GetSpacingY());
 	this->FrameFields[KEY_SECTOR_LEFT_PIXELS]	= PlusCommon::ToString(this->GetSectorLeftPixels());
 	this->FrameFields[KEY_SECTOR_RIGHT_PIXELS]	= PlusCommon::ToString(this->GetSectorRightPixels());
 	this->FrameFields[KEY_SECTOR_TOP_PIXELS]	= PlusCommon::ToString(this->GetSectorTopPixels());
@@ -1287,6 +1290,14 @@ bool vtkPlusBkProFocusOemVideoSource::similar(double a, double b, double tol)
 std::vector<double> vtkPlusBkProFocusOemVideoSource::CalculateAngles()
 {
 	std::vector<double> retval;
+#ifdef OFFLINE_TESTING
+	retval.push_back(0);
+	retval.push_back(0);
+	retval.push_back(0);
+	retval.push_back(0);
+	return retval;
+#endif
+
 	retval.push_back(this->GetStartLineAngle() - vtkMath::Pi()/2.0);
 	retval.push_back(this->GetStopLineAngle() - vtkMath::Pi()/2.0);
 	retval.push_back(0);
@@ -1315,6 +1326,13 @@ std::vector<double> vtkPlusBkProFocusOemVideoSource::CalculateBoundingBox()
 std::vector<double> vtkPlusBkProFocusOemVideoSource::CalculateDepths()
 {
 	std::vector<double> retval;
+#ifdef OFFLINE_TESTING
+	int* dimensions = this->Internal->DecodedImageFrame->GetDimensions();
+	double* spacing = this->Internal->DecodedImageFrame->GetSpacing();
+	retval.push_back(0);
+	retval.push_back(dimensions[1]*spacing[1]);
+	return retval;
+#endif
 
 	double originDistanceToStartLine_mm = 0.0;
 
@@ -1333,6 +1351,12 @@ std::vector<double> vtkPlusBkProFocusOemVideoSource::CalculateDepths()
 
 double vtkPlusBkProFocusOemVideoSource::CalculateLinearWidth()
 {
+#ifdef OFFLINE_TESTING
+	int* dimensions = this->Internal->DecodedImageFrame->GetDimensions();
+	double* spacing = this->Internal->DecodedImageFrame->GetSpacing();
+	return dimensions[0]*spacing[0];
+#endif
+
 	double width = fabs(this->GetStartLineX() - this->GetStopLineX());
 	return width;
 }
@@ -1463,6 +1487,10 @@ double vtkPlusBkProFocusOemVideoSource::GetSectorBottomMm()
 
 vtkPlusBkProFocusOemVideoSource::PROBE_TYPE vtkPlusBkProFocusOemVideoSource::GetProbeType()
 {
+#ifdef OFFLINE_TESTING
+	return LINEAR;
+#endif
+
 	if (probePort.compare("A"))
 		return probeTypePortA;
 	else if (probePort.compare("B"))
