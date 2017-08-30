@@ -122,6 +122,7 @@ protected:
   //Ultrasound sector geometry, values read from the scanner
   double StartLineX_m, StartLineY_m, StartLineAngle_rad, StartDepth_m, StopLineX_m, StopLineY_m, StopLineAngle_rad, StopDepth_m;
   int pixelLeft_pix, pixelTop_pix, pixelRight_pix, pixelBottom_pix;
+  int grabFramePixelLeft_pix, grabFramePixelTop_pix, grabFramePixelRight_pix, grabFramePixelBottom_pix;
   double tissueLeft_m, tissueTop_m, tissueRight_m, tissueBottom_m;
   //double resolutionX_m, resolutionY_m, probeCenterX_m, probeCenterY_m, probeRadius_m;
   int gain_percent;
@@ -157,6 +158,7 @@ protected:
 
   PlusStatus ReadNextMessage();
   std::vector<char> removeSpecialCharacters(std::vector<char> inMessage);
+  int throwAwayCharactersUntilEOTReached(char &character);
 
   //PlusStatus SendReceiveQuery(std::string query, size_t replyBytes);
   PlusStatus SendQuery(std::string query);
@@ -166,6 +168,7 @@ protected:
   PlusStatus QueryImageSize();
   PlusStatus QueryGeometryScanarea();
   PlusStatus QueryGeometryPixel();
+  PlusStatus QueryGeometryUsGrabFrame();
   PlusStatus QueryGeometryTissue();
   //PlusStatus QueryTransverseImageCalibration();
   //PlusStatus QuerySagImageCalibration();
@@ -176,6 +179,7 @@ protected:
   void ParseImageSize(std::istringstream &replyStream);
   void ParseGeometryScanarea(std::istringstream &replyStream);
   void ParseGeometryPixel(std::istringstream &replyStream);
+  void ParseGeometryUsGrabFrame(std::istringstream &replyStream);
   void ParseGeometryTissue(std::istringstream &replyStream);
   void ParseGain(std::istringstream &replyStream);
   void ParseTransducerList(std::istringstream &replyStream);

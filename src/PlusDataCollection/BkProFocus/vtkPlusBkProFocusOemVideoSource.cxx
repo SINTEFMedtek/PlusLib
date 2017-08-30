@@ -8,7 +8,7 @@ See License.txt for details.
 
 // Define OFFLINE_TESTING to read image input from file instead of reading from the actual hardware device.
 // This is useful only for testing and debugging without having access to an actual BK scanner.
-#define OFFLINE_TESTING
+//#define OFFLINE_TESTING
 //static const char OFFLINE_TESTING_FILENAME[] = "c:\\Users\\lasso\\Downloads\\bktest.png";
 //static const char OFFLINE_TESTING_FILENAME[] = "c:\\dev\\bktest_color.png";
 static const char OFFLINE_TESTING_FILENAME[] = "/Users/olevs/dev/test/bktest.png";
@@ -532,6 +532,10 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::ProcessMessagesAndReadNextImage(int 
 			{
 				this->ParseGeometryTissue(replyStream);
 			}
+			else if ((messageName.compare("B_GEOMETRY_US_FRAME_GRAB") == 0) && (messageSubtype.compare("A") == 0))
+			{
+				this->ParseGeometryUsGrabFrame(replyStream);
+			}
 			else if ((messageName.compare("B_GAIN") == 0) && (messageSubtype.compare("A") == 0))
 			{
 				this->ParseGain(replyStream);
@@ -595,40 +599,79 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::ReadNextMessage()
 				rawMessage.push_back(character);
 				totalBytes++;
 				LOG_TRACE("Number of bytes in binary data block size: " << numChars); // 7 or 6
-				if (numChars == 0)
+				if (numChars <= 1 || numChars >= 9)
 				{
-					LOG_ERROR("Failed to read binary data block from BK OEM interface");
+					LOG_ERROR("Error in binary data block from BK OEM interface. Incorrect character after block start (#): " << character << "(char num: " << (int)character << ")" <<  " (should be 6 or 7) " );
 					return PLUS_FAIL;
 				}
-
-				unsigned int uncompressedPixelBufferSize = 0;
-				for (int k = 0; k < numChars; k++, totalBytes++)
+				else
 				{
-					receivedBytes = this->Internal->VtkSocket->Receive(&character, 1);
-					rawMessage.push_back(character);
-					uncompressedPixelBufferSize = uncompressedPixelBufferSize * 10 + ((int)character - (int)'0');
-				}
-				LOG_TRACE("uncompressedPixelBufferSize = " << uncompressedPixelBufferSize);
+					unsigned int uncompressedPixelBufferSize = 0;
+					for (int k = 0; k < numChars; k++, totalBytes++)
+					{
+						receivedBytes = this->Internal->VtkSocket->Receive(&character, 1);
+						if(receivedBytes !=1)
+						{
+							LOG_ERROR("Error in binary data block from BK OEM interface. Missing block size character.");
+						}
+						rawMessage.push_back(character);
+						uncompressedPixelBufferSize = uncompressedPixelBufferSize * 10 + ((int)character - (int)'0');
+					}
+					LOG_DEBUG("uncompressedPixelBufferSize = " << uncompressedPixelBufferSize);
 
-				int rawSize = rawMessage.size();
-				rawMessage.resize(rawSize+uncompressedPixelBufferSize);
-				receivedBytes = this->Internal->VtkSocket->Receive(&rawMessage[rawSize], uncompressedPixelBufferSize);
+					int rawSize = rawMessage.size();
+					rawMessage.resize(rawSize+uncompressedPixelBufferSize);
+					receivedBytes = this->Internal->VtkSocket->Receive(&rawMessage[rawSize], uncompressedPixelBufferSize, true);
 
-				if(receivedBytes != uncompressedPixelBufferSize)
-				{
-					LOG_ERROR("Failed to read full binary data block from BK OEM interface");
-					return PLUS_FAIL;
+					int totalReceivedBytes = totalReceivedBytes;
+					if(receivedBytes != uncompressedPixelBufferSize)
+					{
+						LOG_ERROR("Failed to read full binary data block from BK OEM interface receivedBytes: " << receivedBytes );
+						return PLUS_FAIL;
+					}
+					totalBytes += uncompressedPixelBufferSize;
+
+					//For some reason the BK5000 scanner sends a larger binary data block than specified.
+					//Currently the additional data are just thrown away
+					receivedBytes = this->throwAwayCharactersUntilEOTReached(character);
+
+					rawMessage.push_back(character); //Add EOT character
+					totalBytes++;
 				}
-				totalBytes += uncompressedPixelBufferSize;
 			}
-		}
-	}
+			else
+			{
+				LOG_ERROR("Error in binary data block from BK OEM interface. No character after block start #");
+				receivedBytes = 1;
+			}
+		}//if
+	}//while
 	this->Internal->OemMessage = removeSpecialCharacters(rawMessage);
 
 	if (receivedBytes < 1)
+	{
+		LOG_ERROR("Error in binary data block from BK OEM interface. No data.");
 		return PLUS_FAIL;
+	}
 	else
 		return PLUS_SUCCESS;
+}
+
+int vtkPlusBkProFocusOemVideoSource::throwAwayCharactersUntilEOTReached(char &character)
+{
+	int receivedBytes = this->Internal->VtkSocket->Receive(&character, 1);
+	if(character != EOT)
+	{
+		LOG_WARNING("Invalid charactes received. Try to throw away surplus characters.");
+		int counter = 0;
+		while (character != EOT)
+		{
+			receivedBytes = this->Internal->VtkSocket->Receive(&character, 1);
+			++counter;
+		}
+		LOG_DEBUG("Thrown away characters: " << counter);
+	}
+	return receivedBytes;
 }
 
 std::vector<char> vtkPlusBkProFocusOemVideoSource::removeSpecialCharacters(std::vector<char> inMessage)
@@ -730,6 +773,34 @@ void vtkPlusBkProFocusOemVideoSource::ParseGeometryPixel(std::istringstream &rep
 	pixelBottom_pix = atoi(stringVal.c_str());
 
 	LOG_DEBUG("Ultrasound geometry. pixelLeft_pix: " << pixelLeft_pix << " pixelTop_pix: " << pixelTop_pix << " pixelRight_pix: " << pixelRight_pix << " pixelBottom_pix: " << pixelBottom_pix);
+}
+
+//-----------------------------------------------------------------------------
+// QUERY:B_GEOMETRY_US_FRAME_GRAB;
+PlusStatus vtkPlusBkProFocusOemVideoSource::QueryGeometryUsGrabFrame()
+{
+	std::string query = "QUERY:B_GEOMETRY_US_FRAME_GRAB:A;";
+	LOG_TRACE("Query from vtkPlusBkProFocusOemVideoSource: " << query);
+
+	return SendQuery(query);
+}
+
+void vtkPlusBkProFocusOemVideoSource::ParseGeometryUsGrabFrame(std::istringstream &replyStream)
+{
+	std::string stringVal;
+	std::getline(replyStream, stringVal, ',');
+	grabFramePixelLeft_pix = atoi(stringVal.c_str());
+	std::getline(replyStream, stringVal, ',');
+	grabFramePixelTop_pix = atoi(stringVal.c_str());
+	std::getline(replyStream, stringVal, ',');
+	grabFramePixelRight_pix = atoi(stringVal.c_str());
+	std::getline(replyStream, stringVal, ';');
+	grabFramePixelBottom_pix = atoi(stringVal.c_str());
+
+	LOG_DEBUG("Ultrasound grab frame geometry. pixelLeft_pix: " << grabFramePixelLeft_pix
+			  << " grabFramePixelTop_pix: " << grabFramePixelTop_pix
+			  << " grabFramePixelRight_pix: " << grabFramePixelRight_pix
+			  << " grabFramePixelBottom_pix: " << grabFramePixelBottom_pix);
 }
 
 //-----------------------------------------------------------------------------
@@ -873,6 +944,7 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::SubscribeToParameterChanges()
 	query += "\"US_WIN_SIZE\"";
 	query += ",\"B_GEOMETRY_SCANAREA\"";
 	query += ",\"B_GEOMETRY_PIXEL\"";
+	query += ",\"B_GEOMETRY_US_FRAME_GRAB\"";
 	query += ",\"B_GEOMETRY_TISSUE\"";
 	query += ",\"B_GAIN\"";
 	query += ",\"TRANSDUCER\"";
@@ -1194,6 +1266,10 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::RequestParametersFromScanner()
 	{
 		return PLUS_FAIL;
 	}
+	if (this->QueryGeometryUsGrabFrame() != PLUS_SUCCESS)
+	{
+		return PLUS_FAIL;
+	}
 	if (this->QueryGeometryTissue() != PLUS_SUCCESS)
 	{
 		return PLUS_FAIL;
@@ -1427,20 +1503,35 @@ double vtkPlusBkProFocusOemVideoSource::GetStopLineAngle()
 {
 	return StopLineAngle_rad;
 }
+
 double vtkPlusBkProFocusOemVideoSource::GetSpacingX()
 {
-	double spacingX_mm = 1000.0 * (tissueRight_m - tissueLeft_m) / (pixelRight_pix - pixelLeft_pix);
-#ifdef OFFLINE_TESTING
-	spacingX_mm = 1.0;
+	double spacingX_mm = 1.0;
+#ifndef OFFLINE_TESTING
+	if(this->ContinuousStreamingEnabled)
+	{
+		spacingX_mm = 1000.0 * (tissueRight_m - tissueLeft_m) / (grabFramePixelRight_pix - grabFramePixelLeft_pix);
+	}
+	else
+	{
+		spacingX_mm = 1000.0 * (tissueRight_m - tissueLeft_m) / (pixelRight_pix - pixelLeft_pix);
+	}
 #endif
 	return spacingX_mm;
 }
 
 double vtkPlusBkProFocusOemVideoSource::GetSpacingY()
 {
-	double spacingY_mm = 1000.0 * (tissueTop_m - tissueBottom_m) / (pixelBottom_pix - pixelTop_pix);
-#ifdef OFFLINE_TESTING
-	spacingY_mm = 1.0;
+	double spacingY_mm = 1.0;
+#ifndef OFFLINE_TESTING
+	if(this->ContinuousStreamingEnabled)
+	{
+		spacingY_mm = 1000.0 * (tissueTop_m - tissueBottom_m) / (grabFramePixelBottom_pix - grabFramePixelTop_pix);
+	}
+	else
+	{
+		spacingY_mm = 1000.0 * (tissueTop_m - tissueBottom_m) / (pixelBottom_pix - pixelTop_pix);
+	}
 #endif
 	return spacingY_mm;
 }
