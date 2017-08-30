@@ -158,7 +158,7 @@ protected:
 
   PlusStatus ReadNextMessage();
   std::vector<char> removeSpecialCharacters(std::vector<char> inMessage);
-  int throwAwayCharactersUntilEOTReached(char &character);
+  int addAdditionalBinaryDataToImageUntilEOTReached(char &character, std::vector<char> &rawMessage);
 
   //PlusStatus SendReceiveQuery(std::string query, size_t replyBytes);
   PlusStatus SendQuery(std::string query);

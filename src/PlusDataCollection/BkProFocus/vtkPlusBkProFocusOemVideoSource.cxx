@@ -210,22 +210,22 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::InternalConnect()
   }
   LOG_DEBUG("Connected to BK scanner");
 
+  if (!(this->RequestParametersFromScanner()
+        && this->ConfigEventsOn()
+        && this->SubscribeToParameterChanges()
+        ))
+  {
+      LOG_ERROR("Cound not init BK scanner");
+      return PLUS_FAIL;
+  }
   if (this->ContinuousStreamingEnabled)
   {
-	  if (!(this->RequestParametersFromScanner()
-		  && this->ConfigEventsOn()
-		  && this->SubscribeToParameterChanges()
-			))
-	  {
-		  LOG_ERROR("Cound not init BK scanner");
-		  return PLUS_FAIL;
-	  }
-	  if (!this->StartDataStreaming())
-	  {
-		  return PLUS_FAIL;
-	  }
+      if (!this->StartDataStreaming())
+      {
+          return PLUS_FAIL;
+      }
 
-	  LOG_DEBUG("Connected to BK scanner");
+      LOG_DEBUG("Connected to BK scanner");
   }
 
 #endif
@@ -631,12 +631,14 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::ReadNextMessage()
 					}
 					totalBytes += uncompressedPixelBufferSize;
 
-					//For some reason the BK5000 scanner sends a larger binary data block than specified.
-					//Currently the additional data are just thrown away
-					receivedBytes = this->throwAwayCharactersUntilEOTReached(character);
+					//Tested on a BK5000 scanner:
+					//The specified size of the binary data block don't match the actual size (sizes wary a lot).
+					//The specified size are sometimes smaller than the actual image,
+					//and the data block are sometimes (much) larger than the actual image.
+					//Currently all the binary data are added to the image.
+					receivedBytes = this->addAdditionalBinaryDataToImageUntilEOTReached(character, rawMessage);
 
-					rawMessage.push_back(character); //Add EOT character
-					totalBytes++;
+					totalBytes += receivedBytes;
 				}
 			}
 			else
@@ -657,20 +659,20 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::ReadNextMessage()
 		return PLUS_SUCCESS;
 }
 
-int vtkPlusBkProFocusOemVideoSource::throwAwayCharactersUntilEOTReached(char &character)
+int vtkPlusBkProFocusOemVideoSource::addAdditionalBinaryDataToImageUntilEOTReached(char &character, std::vector<char> &rawMessage)
 {
 	int receivedBytes = this->Internal->VtkSocket->Receive(&character, 1);
-	if(character != EOT)
+	if(receivedBytes != 0 && character != EOT)
 	{
-		LOG_WARNING("Invalid charactes received. Try to throw away surplus characters.");
-		int counter = 0;
+		LOG_WARNING("Unspecified charactes received. Adding these to image.");
 		while (character != EOT)
 		{
-			receivedBytes = this->Internal->VtkSocket->Receive(&character, 1);
-			++counter;
+			rawMessage.push_back(character);
+			receivedBytes = receivedBytes + this->Internal->VtkSocket->Receive(&character, 1);
 		}
-		LOG_DEBUG("Thrown away characters: " << counter);
+		LOG_DEBUG("Added additional characters to image: " << receivedBytes);
 	}
+	rawMessage.push_back(character); //Add EOT character
 	return receivedBytes;
 }
 
@@ -797,7 +799,7 @@ void vtkPlusBkProFocusOemVideoSource::ParseGeometryUsGrabFrame(std::istringstrea
 	std::getline(replyStream, stringVal, ';');
 	grabFramePixelBottom_pix = atoi(stringVal.c_str());
 
-	LOG_DEBUG("Ultrasound grab frame geometry. pixelLeft_pix: " << grabFramePixelLeft_pix
+	LOG_DEBUG("Ultrasound grab frame geometry. grabFramePixelLeft_pix: " << grabFramePixelLeft_pix
 			  << " grabFramePixelTop_pix: " << grabFramePixelTop_pix
 			  << " grabFramePixelRight_pix: " << grabFramePixelRight_pix
 			  << " grabFramePixelBottom_pix: " << grabFramePixelBottom_pix);
@@ -1336,8 +1338,13 @@ std::vector<double> vtkPlusBkProFocusOemVideoSource::CalculateOrigin()
 {
 	std::vector<double> retval;
 	int* dimensions = this->Internal->DecodedImageFrame->GetDimensions();
-	double originX = dimensions[0]/2.0;
+	double originX = dimensions[0]/2.0;//Continuous streaming
 
+	if(!this->ContinuousStreamingEnabled)
+	{
+		double width_pix = pixelRight_pix - pixelLeft_pix;
+		originX = pixelLeft_pix + width_pix/2.0;
+	}
 
 	double originY = 0;
 	if (this->IsSectorProbe())
@@ -1411,10 +1418,14 @@ std::vector<double> vtkPlusBkProFocusOemVideoSource::CalculateDepths()
 #endif
 
 	double originDistanceToStartLine_mm = 0.0;
+	if(!ContinuousStreamingEnabled)
+	{
+		originDistanceToStartLine_mm = pixelTop_pix*this->GetSpacingY();
+	}
 
 	if(this->IsSectorProbe())
 	{
-		originDistanceToStartLine_mm = (this->GetStartLineX()) / sin(this->CalculateWidthInRadians() / 2.0);
+		originDistanceToStartLine_mm += (this->GetStartLineX()) / sin(this->CalculateWidthInRadians() / 2.0);
 	}
 
 	double depthStart = this->GetStartDepth() + originDistanceToStartLine_mm;
@@ -1514,7 +1525,10 @@ double vtkPlusBkProFocusOemVideoSource::GetSpacingX()
 	}
 	else
 	{
-		spacingX_mm = 1000.0 * (tissueRight_m - tissueLeft_m) / (pixelRight_pix - pixelLeft_pix);
+//		spacingX_mm = 1000.0 * (tissueRight_m - tissueLeft_m) / (pixelRight_pix - pixelLeft_pix);
+		//The values for pixelRight_pix and pixelLeft_pix seems to be incorrect.
+		//Assume equal spacing in x and y and return y spacing instead
+		return this->GetSpacingY();
 	}
 #endif
 	return spacingX_mm;
