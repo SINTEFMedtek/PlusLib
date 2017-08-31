@@ -83,6 +83,21 @@ public:
   /*! Enable/disable color in the streamed video */
   vtkBooleanMacro(ColorEnabled, bool);
 
+  /*! Enable/disable offline testing */
+  vtkSetMacro(OfflineTesting, bool);
+
+  /*! Enable/disable offline testing */
+  vtkGetMacro(OfflineTesting, bool);
+
+  /*! Enable/disable offline testing */
+  vtkBooleanMacro(OfflineTesting, bool);
+
+  /*! Path to image file used for offline testing */
+  vtkSetStringMacro(OfflineTestingFilePath);
+
+  /*! Path to image file used for offline testing */
+  vtkGetStringMacro(OfflineTestingFilePath);
+
 protected:
   static const char* KEY_ORIGIN;
   static const char* KEY_ANGLES;
@@ -243,6 +258,8 @@ protected:
 
   bool ContinuousStreamingEnabled;
   bool ColorEnabled;
+  bool OfflineTesting;
+  char* OfflineTestingFilePath;
 
   // For internal storage of additional variables (to minimize the number of included headers)
   class vtkInternal;

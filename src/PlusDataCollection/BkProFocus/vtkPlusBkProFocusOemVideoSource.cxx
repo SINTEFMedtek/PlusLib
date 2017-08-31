@@ -6,13 +6,6 @@ See License.txt for details.
 
 // GRAB_FRAME API was partly contributed by by Xin Kang at SZI, Children's National Medical Center
 
-// Define OFFLINE_TESTING to read image input from file instead of reading from the actual hardware device.
-// This is useful only for testing and debugging without having access to an actual BK scanner.
-//#define OFFLINE_TESTING
-//static const char OFFLINE_TESTING_FILENAME[] = "c:\\Users\\lasso\\Downloads\\bktest.png";
-//static const char OFFLINE_TESTING_FILENAME[] = "c:\\dev\\bktest_color.png";
-static const char OFFLINE_TESTING_FILENAME[] = "/Users/olevs/dev/test/bktest.png";
-
 #include "PlusConfigure.h"
 #include "vtkPlusBkProFocusOemVideoSource.h"
 
@@ -124,6 +117,8 @@ vtkPlusBkProFocusOemVideoSource::vtkPlusBkProFocusOemVideoSource()
 
   this->ContinuousStreamingEnabled = false;
   this->ColorEnabled = false;
+  this->OfflineTesting = false;
+  this->OfflineTestingFilePath = NULL;
   this->UltrasoundWindowSize[0] = 0;
   this->UltrasoundWindowSize[1] = 0;
   this->StartLineX_m = 0;
@@ -167,6 +162,7 @@ vtkPlusBkProFocusOemVideoSource::~vtkPlusBkProFocusOemVideoSource()
   delete this->Internal;
   this->Internal = NULL;
   this->ScannerAddress = NULL;
+  this->OfflineTestingFilePath = NULL;
 }
 
 //----------------------------------------------------------------------------
@@ -198,37 +194,42 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::InternalConnect()
   LOG_DEBUG("BK scanner address: " << this->ScannerAddress);
   LOG_DEBUG("BK scanner OEM port: " << this->OemPort);
 
-#ifndef OFFLINE_TESTING
-  LOG_DEBUG("Connecting to BK scanner");
-  bool connected = (this->Internal->VtkSocket->ConnectToServer(this->ScannerAddress, this->OemPort) == 0);
-  if (!connected)
+  if(this->OfflineTesting)
   {
-	  LOG_ERROR("Could not connect to BKProFocusOem:"
-		  << " scanner address = " << this->ScannerAddress
-		  << ", OEM port = " << this->OemPort);
-    return PLUS_FAIL;
+      LOG_INFO("Offline testing on");
+      LOG_DEBUG("Offline testing file path: " << this->OfflineTestingFilePath);
   }
-  LOG_DEBUG("Connected to BK scanner");
-
-  if (!(this->RequestParametersFromScanner()
-        && this->ConfigEventsOn()
-        && this->SubscribeToParameterChanges()
-        ))
+  else
   {
-      LOG_ERROR("Cound not init BK scanner");
-      return PLUS_FAIL;
-  }
-  if (this->ContinuousStreamingEnabled)
-  {
-      if (!this->StartDataStreaming())
+      LOG_DEBUG("Connecting to BK scanner");
+      bool connected = (this->Internal->VtkSocket->ConnectToServer(this->ScannerAddress, this->OemPort) == 0);
+      if (!connected)
       {
+          LOG_ERROR("Could not connect to BKProFocusOem:"
+                    << " scanner address = " << this->ScannerAddress
+                    << ", OEM port = " << this->OemPort);
           return PLUS_FAIL;
       }
-
       LOG_DEBUG("Connected to BK scanner");
-  }
 
-#endif
+      if (!(this->RequestParametersFromScanner()
+            && this->ConfigEventsOn()
+            && this->SubscribeToParameterChanges()
+            ))
+      {
+          LOG_ERROR("Cound not init BK scanner");
+          return PLUS_FAIL;
+      }
+      if (this->ContinuousStreamingEnabled)
+      {
+          if (!this->StartDataStreaming())
+          {
+              return PLUS_FAIL;
+          }
+
+          LOG_DEBUG("Connected to BK scanner");
+      }
+  }
 
 	return PLUS_SUCCESS;
 }
@@ -278,12 +279,13 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::InternalDisconnect()
 
   LOG_DEBUG("Disconnect from BKProFocusOem");
 
-#ifndef OFFLINE_TESTING
-  if (!this->StopDataStreaming())
+  if (!this->OfflineTesting && this->ContinuousStreamingEnabled)
   {
-	  return PLUS_FAIL;
+      if (!this->StopDataStreaming())
+      {
+          return PLUS_FAIL;
+      }
   }
-#endif
   this->StopRecording();
   
   if (this->Internal->VtkSocket->GetConnected())
@@ -316,9 +318,8 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::InternalUpdate()
   unsigned char* uncompressedPixelBuffer = 0;
   unsigned int uncompressedPixelBufferSize = 0;
   int numBytesProcessed = 0;
-#ifndef OFFLINE_TESTING
-//  try
-//  {
+  if(!this->OfflineTesting)
+  {
     // Set a buffer size that is likely to be able to hold a complete image
     int maxReplySize = 8 * 1024 * 1024;
 
@@ -376,14 +377,7 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::InternalUpdate()
       unsigned int _timestamp = *(int*)timeStamp;
 	  //LOG_TRACE("Image timestamp = " << static_cast<std::ostringstream*>(&(std::ostringstream() << _timestamp))->str());
     }
-/*  }
-  catch (TcpClientWaitException e)
-  {
-    LOG_ERROR("Communication error on the BK OEM interface (TcpClientWaitException: " << e.Message << ")")
-      return PLUS_FAIL;
-  }*/
-
-#endif
+  }
 
 /*
 FILE * f;
@@ -394,8 +388,7 @@ fclose(f);
 }
 */
 
-#ifndef OFFLINE_TESTING
-  if (this->ContinuousStreamingEnabled)
+  if (!this->OfflineTesting && this->ContinuousStreamingEnabled)
   {
     this->Internal->DecodedImageFrame->SetExtent(0, this->UltrasoundWindowSize[0] - 1, 0, this->UltrasoundWindowSize[1] - 1, 0, 0);
 
@@ -417,7 +410,6 @@ fclose(f);
 	}
   }
   else
-#endif
   {
     if (DecodePngImage(uncompressedPixelBuffer, uncompressedPixelBufferSize, this->Internal->DecodedImageFrame) != PLUS_SUCCESS)
     {
@@ -1014,6 +1006,8 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::ReadConfiguration(vtkXMLDataElement*
   XML_READ_SCALAR_ATTRIBUTE_REQUIRED(int, OemPort, deviceConfig);
   XML_READ_BOOL_ATTRIBUTE_OPTIONAL(ContinuousStreamingEnabled, deviceConfig);
   XML_READ_BOOL_ATTRIBUTE_OPTIONAL(ColorEnabled, deviceConfig);
+  XML_READ_BOOL_ATTRIBUTE_OPTIONAL(OfflineTesting, deviceConfig);
+  XML_READ_CSTRING_ATTRIBUTE_REQUIRED(OfflineTestingFilePath, deviceConfig);
   return PLUS_SUCCESS;
 }
 
@@ -1027,6 +1021,8 @@ PlusStatus vtkPlusBkProFocusOemVideoSource::WriteConfiguration(vtkXMLDataElement
   deviceConfig->SetAttribute("OemPort", ss.str().c_str());
   XML_WRITE_BOOL_ATTRIBUTE(ContinuousStreamingEnabled, deviceConfig);
   XML_WRITE_BOOL_ATTRIBUTE(ColorEnabled, deviceConfig);
+  XML_WRITE_BOOL_ATTRIBUTE(OfflineTesting, deviceConfig);
+  XML_WRITE_CSTRING_ATTRIBUTE_IF_NOT_NULL(OfflineTestingFilePath, deviceConfig);
   return PLUS_SUCCESS;
 }
 
@@ -1080,22 +1076,23 @@ void PngWarningCallback(png_structp png_ptr, png_const_charp message)
 PlusStatus vtkPlusBkProFocusOemVideoSource::DecodePngImage(unsigned char* pngBuffer, unsigned int pngBufferSize, vtkImageData* decodedImage)
 {
 
-#ifdef OFFLINE_TESTING
-  FILE *fp = fopen(OFFLINE_TESTING_FILENAME, "rb");
-  if (!fp)
+  if(this->OfflineTesting)
   {
-    LOG_ERROR("Failed to read png");
-    return PLUS_FAIL;
+    FILE *fp = fopen(this->OfflineTestingFilePath, "rb");
+    if (!fp)
+    {
+      LOG_ERROR("Failed to read png");
+      return PLUS_FAIL;
+    }
+    fseek(fp, 0, SEEK_END);
+    size_t fileSizeInBytes = ftell(fp);
+    rewind(fp);
+    std::vector<unsigned char> fileReadBuffer;
+    fileReadBuffer.resize(fileSizeInBytes);
+    pngBuffer = &(fileReadBuffer[0]);
+    fread(pngBuffer, 1, fileSizeInBytes, fp);
+    fclose(fp);
   }
-  fseek(fp, 0, SEEK_END);
-  size_t fileSizeInBytes = ftell(fp);
-  rewind(fp);
-  std::vector<unsigned char> fileReadBuffer;
-  fileReadBuffer.resize(fileSizeInBytes);
-  pngBuffer = &(fileReadBuffer[0]);
-  fread(pngBuffer, 1, fileSizeInBytes, fp);
-  fclose(fp);
-#endif
 
   unsigned int headerSize = 8;
   unsigned char* header = pngBuffer; // a 8-byte header
@@ -1373,16 +1370,16 @@ bool vtkPlusBkProFocusOemVideoSource::similar(double a, double b, double tol)
 std::vector<double> vtkPlusBkProFocusOemVideoSource::CalculateAngles()
 {
 	std::vector<double> retval;
-#ifdef OFFLINE_TESTING
-	retval.push_back(0);
-	retval.push_back(0);
-	retval.push_back(0);
-	retval.push_back(0);
-	return retval;
-#endif
-
-	retval.push_back(this->GetStartLineAngle() - vtkMath::Pi()/2.0);
-	retval.push_back(this->GetStopLineAngle() - vtkMath::Pi()/2.0);
+	if(this->OfflineTesting)
+	{
+		retval.push_back(0);
+		retval.push_back(0);
+	}
+	else
+	{
+		retval.push_back(this->GetStartLineAngle() - vtkMath::Pi()/2.0);
+		retval.push_back(this->GetStopLineAngle() - vtkMath::Pi()/2.0);
+	}
 	retval.push_back(0);
 	retval.push_back(0);
 	return retval;
@@ -1409,13 +1406,14 @@ std::vector<double> vtkPlusBkProFocusOemVideoSource::CalculateBoundingBox()
 std::vector<double> vtkPlusBkProFocusOemVideoSource::CalculateDepths()
 {
 	std::vector<double> retval;
-#ifdef OFFLINE_TESTING
-	int* dimensions = this->Internal->DecodedImageFrame->GetDimensions();
-	double* spacing = this->Internal->DecodedImageFrame->GetSpacing();
-	retval.push_back(0);
-	retval.push_back(dimensions[1]*spacing[1]);
-	return retval;
-#endif
+	if(this->OfflineTesting)
+	{
+		int* dimensions = this->Internal->DecodedImageFrame->GetDimensions();
+		double* spacing = this->Internal->DecodedImageFrame->GetSpacing();
+		retval.push_back(0);
+		retval.push_back(dimensions[1]*spacing[1]);
+		return retval;
+	}
 
 	double originDistanceToStartLine_mm = 0.0;
 	if(!ContinuousStreamingEnabled)
@@ -1438,11 +1436,12 @@ std::vector<double> vtkPlusBkProFocusOemVideoSource::CalculateDepths()
 
 double vtkPlusBkProFocusOemVideoSource::CalculateLinearWidth()
 {
-#ifdef OFFLINE_TESTING
-	int* dimensions = this->Internal->DecodedImageFrame->GetDimensions();
-	double* spacing = this->Internal->DecodedImageFrame->GetSpacing();
-	return dimensions[0]*spacing[0];
-#endif
+	if(this->OfflineTesting)
+	{
+		int* dimensions = this->Internal->DecodedImageFrame->GetDimensions();
+		double* spacing = this->Internal->DecodedImageFrame->GetSpacing();
+		return dimensions[0]*spacing[0];
+	}
 
 	double width = fabs(this->GetStartLineX() - this->GetStopLineX());
 	return width;
@@ -1518,35 +1517,37 @@ double vtkPlusBkProFocusOemVideoSource::GetStopLineAngle()
 double vtkPlusBkProFocusOemVideoSource::GetSpacingX()
 {
 	double spacingX_mm = 1.0;
-#ifndef OFFLINE_TESTING
-	if(this->ContinuousStreamingEnabled)
+	if(!this->OfflineTesting)
 	{
-		spacingX_mm = 1000.0 * (tissueRight_m - tissueLeft_m) / (grabFramePixelRight_pix - grabFramePixelLeft_pix);
+		if(this->ContinuousStreamingEnabled)
+		{
+			spacingX_mm = 1000.0 * (tissueRight_m - tissueLeft_m) / (grabFramePixelRight_pix - grabFramePixelLeft_pix);
+		}
+		else
+		{
+//			spacingX_mm = 1000.0 * (tissueRight_m - tissueLeft_m) / (pixelRight_pix - pixelLeft_pix);
+			//The values for pixelRight_pix and pixelLeft_pix seems to be incorrect.
+			//Assume equal spacing in x and y and return y spacing instead
+			return this->GetSpacingY();
+		}
 	}
-	else
-	{
-//		spacingX_mm = 1000.0 * (tissueRight_m - tissueLeft_m) / (pixelRight_pix - pixelLeft_pix);
-		//The values for pixelRight_pix and pixelLeft_pix seems to be incorrect.
-		//Assume equal spacing in x and y and return y spacing instead
-		return this->GetSpacingY();
-	}
-#endif
 	return spacingX_mm;
 }
 
 double vtkPlusBkProFocusOemVideoSource::GetSpacingY()
 {
 	double spacingY_mm = 1.0;
-#ifndef OFFLINE_TESTING
-	if(this->ContinuousStreamingEnabled)
+	if(!this->OfflineTesting)
 	{
-		spacingY_mm = 1000.0 * (tissueTop_m - tissueBottom_m) / (grabFramePixelBottom_pix - grabFramePixelTop_pix);
+		if(this->ContinuousStreamingEnabled)
+		{
+			spacingY_mm = 1000.0 * (tissueTop_m - tissueBottom_m) / (grabFramePixelBottom_pix - grabFramePixelTop_pix);
+		}
+		else
+		{
+			spacingY_mm = 1000.0 * (tissueTop_m - tissueBottom_m) / (pixelBottom_pix - pixelTop_pix);
+		}
 	}
-	else
-	{
-		spacingY_mm = 1000.0 * (tissueTop_m - tissueBottom_m) / (pixelBottom_pix - pixelTop_pix);
-	}
-#endif
 	return spacingY_mm;
 }
 
@@ -1592,9 +1593,10 @@ double vtkPlusBkProFocusOemVideoSource::GetSectorBottomMm()
 
 vtkPlusBkProFocusOemVideoSource::PROBE_TYPE vtkPlusBkProFocusOemVideoSource::GetProbeType()
 {
-#ifdef OFFLINE_TESTING
-	return LINEAR;
-#endif
+	if(this->OfflineTesting)
+	{
+		return LINEAR;
+	}
 
 	if (probePort.compare("A"))
 		return probeTypePortA;
