@@ -218,7 +218,6 @@ protected:
   //Utility functions
   bool IsSectorProbe();
   double CalculateWidthInRadians();
-  bool similar(double a, double b, double tol = 1.0E-6);
 
   double CalculateDepthMm();
   int CalculateGain();

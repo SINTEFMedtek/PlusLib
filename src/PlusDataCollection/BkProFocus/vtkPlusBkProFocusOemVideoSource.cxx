@@ -1339,8 +1339,12 @@ std::vector<double> vtkPlusBkProFocusOemVideoSource::CalculateOrigin()
 
 	if(!this->ContinuousStreamingEnabled)
 	{
-		double width_pix = pixelRight_pix - pixelLeft_pix;
-		originX = pixelLeft_pix + width_pix/2.0;
+		//Even the X-value of UltrasoundWindowSize and pixelLeft_pix don't refer to the actual ultrasound boundaries,
+		//they seem to refer to an area where the ultrasound is placed in the middle,
+		//so it looks like the calculation below works for finding originX.
+		//(Studying a grabbed picture in detail, there seems to be an offset of 1 pixel,
+		//but this is not verified for other settings and probes, so it is not added the the equation.)
+		originX = pixelLeft_pix + this->UltrasoundWindowSize[0]/2.0;//+1?
 	}
 
 	double originY = 0;
@@ -1356,12 +1360,6 @@ std::vector<double> vtkPlusBkProFocusOemVideoSource::CalculateOrigin()
 	retval.push_back(originY);
 	retval.push_back(originZ);
 	return retval;
-}
-
-//TODO: Put this utility function someplace else, or replace it with something similar
-bool vtkPlusBkProFocusOemVideoSource::similar(double a, double b, double tol)
-{
-	return fabs(b - a) < tol;
 }
 
 //Probe sector angles relative to down, in radians
@@ -1449,7 +1447,6 @@ double vtkPlusBkProFocusOemVideoSource::CalculateLinearWidth()
 
 bool vtkPlusBkProFocusOemVideoSource::IsSectorProbe()
 {
-//	bool sectorProbe = this->similar(this->CalculateLinearWidth(), 0);
 	bool sectorProbe = false;
 	if (this->GetProbeType() == SECTOR)
 		sectorProbe = true;
@@ -1521,12 +1518,13 @@ double vtkPlusBkProFocusOemVideoSource::GetSpacingX()
 	{
 		if(this->ContinuousStreamingEnabled)
 		{
-			spacingX_mm = 1000.0 * (tissueRight_m - tissueLeft_m) / (grabFramePixelRight_pix - grabFramePixelLeft_pix);
+			spacingX_mm = 1000.0 * (tissueRight_m - tissueLeft_m) / (grabFramePixelRight_pix - grabFramePixelLeft_pix + 1);
 		}
 		else
 		{
-//			spacingX_mm = 1000.0 * (tissueRight_m - tissueLeft_m) / (pixelRight_pix - pixelLeft_pix);
-			//The values for pixelRight_pix and pixelLeft_pix seems to be incorrect.
+//			spacingX_mm = 1000.0 * (tissueRight_m - tissueLeft_m) / this->UltrasoundWindowSize[0];
+			//The values for pixelRight_pix, pixelLeft_pix and UltrasoundWindowSize[0] seem to be referring
+			//to a larger area than the actual ultrasound and cannot be used here.
 			//Assume equal spacing in x and y and return y spacing instead
 			return this->GetSpacingY();
 		}
@@ -1541,11 +1539,11 @@ double vtkPlusBkProFocusOemVideoSource::GetSpacingY()
 	{
 		if(this->ContinuousStreamingEnabled)
 		{
-			spacingY_mm = 1000.0 * (tissueTop_m - tissueBottom_m) / (grabFramePixelBottom_pix - grabFramePixelTop_pix);
+			spacingY_mm = 1000.0 * (tissueTop_m - tissueBottom_m) / (grabFramePixelBottom_pix - grabFramePixelTop_pix + 1);
 		}
 		else
 		{
-			spacingY_mm = 1000.0 * (tissueTop_m - tissueBottom_m) / (pixelBottom_pix - pixelTop_pix);
+			spacingY_mm = 1000.0 * (tissueTop_m - tissueBottom_m) / this->UltrasoundWindowSize[1];
 		}
 	}
 	return spacingY_mm;
